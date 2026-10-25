@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import Logo from '../../components/Logo.jsx'
-import { Erro } from '../../components/admin/UI.jsx'
+import { CampoSenha, Erro } from '../../components/admin/UI.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { api } from '../../lib/api.js'
 import { MODO_DEMO } from '../../lib/supabase.js'
@@ -49,7 +49,7 @@ export default function Login() {
         </label>
         <label className="block">
           <span className="rotulo">Senha</span>
-          <input type="password" required autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} className="campo" />
+          <CampoSenha required autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} />
         </label>
         <Erro>{erro}</Erro>
         <button type="submit" disabled={entrando} className="btn-primario w-full">{entrando ? 'Entrando…' : 'Entrar'}</button>
