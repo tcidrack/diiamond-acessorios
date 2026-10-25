@@ -6,9 +6,12 @@ export default function Categorias() {
   return (
     <>
       <Titulo>Categorias</Titulo>
-      <p className="mb-4 text-sm text-magenta/55">Aparecem como abas na loja (só as que têm produto). A ordem define a posição.</p>
+      <p className="mb-4 text-sm text-magenta/55">
+        Aparecem como abas na loja (só as que têm produto). Arraste pelos pontinhos ou digite a posição em Ordem; as outras se ajustam sozinhas.
+      </p>
       <CrudLista
         tabela="categorias"
+        arrastavel
         rotuloNovo="Nova categoria"
         vazio="Nenhuma categoria."
         colunas={[
