@@ -8,9 +8,11 @@ export default function Entrega() {
       <Titulo>Entrega por bairro</Titulo>
       <p className="mb-4 text-sm text-magenta/55">
         O cliente escolhe o bairro no checkout e a taxa entra no total. Taxa 0 = entrega grátis. Sem nenhum bairro ativo, a loja só oferece retirada.
+        A ordem é a da lista no checkout: arraste pelos pontinhos ou digite a posição.
       </p>
       <CrudLista
         tabela="bairros_entrega"
+        arrastavel
         rotuloNovo="Novo bairro"
         vazio="Nenhum bairro cadastrado ainda."
         colunas={[
