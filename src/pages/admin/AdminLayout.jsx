@@ -66,7 +66,7 @@ export default function AdminLayout() {
       if (tipo === 'INSERT' || comprovanteNovo) {
         tocarPlim()
         notificar(
-          tipo === 'INSERT' ? `Novo pedido ${novo.codigo} 💎` : `Comprovante do ${novo.codigo}`,
+          tipo === 'INSERT' ? `Novo pedido ${novo.codigo} 💎` : `Pix informado · ${novo.codigo}`,
           `${novo.cliente_nome} · ${formatBRL(novo.total)}`,
           `/admin/pedidos/${novo.id}`,
         )

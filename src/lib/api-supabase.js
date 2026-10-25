@@ -72,10 +72,8 @@ export const apiSupabase = {
     return ok(await supabase.rpc('consultar_pedido', { p_codigo: codigo, p_token: token }))
   },
 
-  async enviarComprovante(codigo, token, file) {
-    const path = `${token}/${Date.now()}.${extensao(file)}`
-    ok(await supabase.storage.from('comprovantes').upload(path, file, { contentType: file.type }))
-    return ok(await supabase.rpc('registrar_comprovante', { p_codigo: codigo, p_token: token, p_path: path }))
+  async informarPixEnviado(codigo, token) {
+    return ok(await supabase.rpc('informar_pix_enviado', { p_codigo: codigo, p_token: token }))
   },
 
   // ---------------- autenticação ----------------

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import PixPagamento from '../../components/PixPagamento.jsx'
-import EnviarComprovante from '../../components/EnviarComprovante.jsx'
+import ConfirmarPix from '../../components/ConfirmarPix.jsx'
 import { IconeCheck, IconeDiamante, IconeWhatsApp } from '../../components/Icones.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, formatData, linkWhatsApp } from '../../lib/format.js'
@@ -63,6 +63,10 @@ export default function PedidoStatus() {
   const etapasVisiveis = pedido.forma_pagamento === 'pix' ? etapas : etapas.filter((e) => e !== 'confirmado')
   const indice = etapasVisiveis.indexOf(etapaAtual(pedido.status))
   const precisaPix = pedido.forma_pagamento === 'pix' && ['aguardando_pagamento', 'pagamento_enviado', 'novo'].includes(pedido.status)
+  const pixInformado = !!pedido.comprovante_enviado_em
+  const textoWhatsApp = pedido.forma_pagamento === 'pix' && precisaPix
+    ? (pixInformado ? 'Último passo: avise a loja pelo WhatsApp. Se quiser, encaminhe o comprovante por lá.' : 'Fale com a loja pelo WhatsApp')
+    : (novo ? 'Último passo: avise a loja pelo WhatsApp para agilizar' : 'Fale com a loja sobre este pedido')
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 px-4 py-6 sm:px-6">
@@ -97,14 +101,21 @@ export default function PedidoStatus() {
 
       {precisaPix && (
         <>
-          {pedido.status !== 'pagamento_enviado' && <PixPagamento config={config} valor={pedido.total} codigo={pedido.codigo} />}
-          <EnviarComprovante codigo={codigo} token={token} jaEnviado={pedido.tem_comprovante} onEnviado={carregar} />
+          {!pixInformado && pedido.status !== 'pagamento_enviado' && <PixPagamento config={config} valor={pedido.total} codigo={pedido.codigo} />}
+          <ConfirmarPix
+            codigo={codigo}
+            token={token}
+            valor={pedido.total}
+            recebedor={config?.pix_nome}
+            jaInformado={pixInformado || pedido.status === 'pagamento_enviado'}
+            onInformado={carregar}
+          />
         </>
       )}
 
       {config?.whatsapp && !cancelado && (
         <div className="card p-5 text-center">
-          <p className="text-sm text-magenta/70">{novo ? 'Último passo: avise a loja pelo WhatsApp para agilizar 💖' : 'Fale com a loja sobre este pedido'}</p>
+          <p className="text-sm text-magenta/70">{textoWhatsApp}</p>
           <a
             href={linkWhatsApp(config.whatsapp, mensagemPedidoWhatsApp(pedido, itens, link))}
             target="_blank"

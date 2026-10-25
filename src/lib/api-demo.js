@@ -281,14 +281,13 @@ export const apiDemo = {
     })
   },
 
-  async enviarComprovante(codigo, token, file) {
-    const dataUrl = await lerArquivo(file)
+  async informarPixEnviado(codigo, token) {
+    await espera(300)
     const db = carregar()
-    const pd = db.pedidos.find((x) => x.codigo === codigo && x.token === token && x.status !== 'cancelado')
+    const pd = db.pedidos.find((x) => x.codigo === codigo && x.token === token && x.forma_pagamento === 'pix' && x.status !== 'cancelado')
     if (!pd) throw new Error('Pedido não encontrado.')
     const antigo = { ...pd }
-    pd.comprovante_path = dataUrl
-    pd.comprovante_enviado_em = new Date().toISOString()
+    pd.comprovante_enviado_em ||= new Date().toISOString()
     if (['novo', 'aguardando_pagamento'].includes(pd.status)) pd.status = 'pagamento_enviado'
     gravar(db)
     emitir('pedidos', 'UPDATE', pd, antigo)

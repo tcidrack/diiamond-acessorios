@@ -126,7 +126,7 @@ export default function PedidoDetalhe() {
 
           {pedido.forma_pagamento === 'pix' && (
             <section className="card p-5 print:hidden">
-              <h2 className="rotulo">Comprovante Pix</h2>
+              <h2 className="rotulo">Pagamento Pix</h2>
               {comprovante ? (
                 <>
                   {ehPdf ? (
@@ -138,8 +138,12 @@ export default function PedidoDetalhe() {
                   )}
                   <p className="mt-2 text-xs text-magenta/50">Enviado em {formatData(pedido.comprovante_enviado_em)}. Confira no app do banco se o valor de {formatBRL(pedido.total)} caiu antes de confirmar.</p>
                 </>
+              ) : pedido.comprovante_enviado_em ? (
+                <p className="text-sm">
+                  Cliente informou o Pix em <strong>{formatData(pedido.comprovante_enviado_em)}</strong>. Confira no app do banco se {formatBRL(pedido.total)} caiu antes de confirmar.
+                </p>
               ) : (
-                <p className="text-sm text-magenta/50">O cliente ainda não enviou o comprovante.</p>
+                <p className="text-sm text-magenta/50">O cliente ainda não informou o pagamento.</p>
               )}
             </section>
           )}

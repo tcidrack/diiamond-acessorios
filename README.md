@@ -1,6 +1,6 @@
 # Diiamond Acessórios — Loja online
 
-Loja virtual da @diiamondacessorios. O cliente pesquisa, monta o carrinho, escolhe entrega (taxa por bairro) ou retirada e paga com Pix (envia o comprovante pelo site), dinheiro ou cartão na maquininha. A dona recebe o pedido no painel com alerta sonoro e pelo WhatsApp. Um assistente de IA responde o Direct do Instagram no estilo da dona.
+Loja virtual da @diiamondacessorios. O cliente pesquisa, monta o carrinho, escolhe entrega (taxa por bairro) ou retirada e paga com Pix (confirma no site que pagou), dinheiro ou cartão na maquininha. A dona recebe o pedido no painel com alerta sonoro e pelo WhatsApp. Um assistente de IA responde o Direct do Instagram no estilo da dona.
 
 - **Loja:** `/` · produto `/produto/:slug` · `/checkout` · acompanhamento `/pedido/:codigo?t=…`
 - **Painel:** `/admin` (pedidos, produtos, categorias, entrega, cupons, configurações, Direct, Assistente IA)
@@ -29,7 +29,7 @@ Abra http://localhost:5173 (loja) e http://localhost:5173/admin (painel: qualque
    select id from auth.users where email in ('EMAIL_DA_LOJA', 'EMAIL_DA_DONA')
    on conflict do nothing;
    ```
-   Rode também `0002_ia_modo_teste.sql` e `0003_gemini_respostas_prontas.sql`.
+   Rode também `0002_ia_modo_teste.sql`, `0003_gemini_respostas_prontas.sql` e `0004_pix_informado.sql`.
 6. **Project Settings → API**: copie a *Project URL* e a chave *anon public*.
 
 ### 2. Site (Vercel)
@@ -55,7 +55,7 @@ Guia completo em [`docs/instagram-setup.md`](docs/instagram-setup.md). As telas 
 |---|---|
 | Tabelas, segurança (RLS), regras de pedido/estoque/cupom | `supabase/migrations/0001_schema.sql` |
 | Criação do pedido (recalcula preços no servidor, baixa estoque, trava concorrência) | função SQL `criar_pedido` |
-| Comprovante Pix | bucket privado `comprovantes`; o cliente só envia, a dona só vê pelo painel |
+| Pix informado | a cliente toca em "Já fiz o Pix" (função SQL `informar_pix_enviado`) e o painel avisa com som |
 | Pix copia e cola / QR | `src/lib/pix.js` (padrão BR Code do Banco Central) |
 | Acesso a dados (Supabase ou demonstração) | `src/lib/api.js`, `api-supabase.js`, `api-demo.js` |
 | IA (Google Gemini) + respostas prontas | `supabase/functions/_shared/agente.ts`, `respostas-prontas.js` |
@@ -65,5 +65,5 @@ Cancelar um pedido no painel devolve as peças ao estoque automaticamente.
 
 ## Pontos de atenção
 - **Pedidos Pix sem pagamento** seguram o estoque até a dona cancelar. Confira a aba "Aguardando Pix" de vez em quando.
-- **Confirme o Pix no app do banco** antes de marcar como pago: o comprovante pode ser falso.
+- **Confirme o Pix no app do banco** antes de marcar como pago: "Já fiz o Pix" é só um aviso da cliente.
 - O alerta sonoro só toca com o painel aberto. O aviso garantido é a mensagem que o cliente manda no WhatsApp ao finalizar.

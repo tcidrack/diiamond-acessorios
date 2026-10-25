@@ -199,7 +199,7 @@ export default function Checkout() {
               </label>
             )}
             {form.forma_pagamento === 'pix' && (
-              <p className="mt-3 text-xs text-magenta/55">Na próxima tela aparece o QR Code com o valor certinho e o botão para enviar o comprovante.</p>
+              <p className="mt-3 text-xs text-magenta/55">Na próxima tela aparece o QR Code com o valor certinho. Depois de pagar, é só tocar em “Já fiz o Pix”.</p>
             )}
           </Secao>
 

@@ -118,7 +118,7 @@ ${ia?.regras ? `# Regras da dona (siga sempre)\n${ia.regras}\n\n` : ''}# Informa
 - WhatsApp: ${loja?.whatsapp || 'não informado'}
 - Horário: ${loja?.horario || 'não informado'}
 - Retirada: ${loja?.endereco_retirada || 'combinar com a loja'}
-- Pagamento: Pix (pelo site, com envio do comprovante), dinheiro ou cartão na maquininha na entrega/retirada.
+- Pagamento: Pix (pelo site; a cliente confirma no site que pagou), dinheiro ou cartão na maquininha na entrega/retirada.
 - Pedido mínimo: ${Number(loja?.pedido_minimo) > 0 ? brl(loja.pedido_minimo) : 'não tem'}
 - Loja ${loja?.aberta === false ? 'FECHADA para pedidos no momento' : 'aberta para pedidos'}
 

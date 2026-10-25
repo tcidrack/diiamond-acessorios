@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Campo, Erro, Titulo, Toggle, useAviso } from '../../components/admin/UI.jsx'
-import PixPagamento from '../../components/PixPagamento.jsx'
 import { api } from '../../lib/api.js'
 import { numeroParaCampo, parseBRL } from '../../lib/format.js'
 
@@ -74,13 +73,6 @@ export default function Configuracoes() {
             <Campo rotulo="Chave Pix" ajuda="CPF, CNPJ, e-mail, celular ou chave aleatória."><input value={cfg.chave_pix || ''} onChange={set('chave_pix')} className="campo" /></Campo>
             <Campo rotulo="Nome do recebedor" ajuda="Como aparece no banco (sem acentos tudo bem)."><input value={cfg.pix_nome || ''} onChange={set('pix_nome')} className="campo" /></Campo>
             <Campo rotulo="Cidade do recebedor"><input value={cfg.pix_cidade || ''} onChange={set('pix_cidade')} className="campo" /></Campo>
-            {cfg.chave_pix && (
-              <details>
-                <summary className="cursor-pointer text-sm font-medium text-magenta/70">Testar: gerar um Pix de R$ 0,01</summary>
-                <p className="my-2 text-xs text-magenta/50">Leia no app do banco e confira se o nome e a chave estão certos (não precisa pagar).</p>
-                <PixPagamento config={cfg} valor={0.01} codigo="TESTE" />
-              </details>
-            )}
           </section>
         </div>
       </div>

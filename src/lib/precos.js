@@ -20,7 +20,7 @@ export function esgotado(produto) {
 }
 
 export const FORMAS_PAGAMENTO = {
-  pix: { rotulo: 'Pix', detalhe: 'QR Code ou copia e cola, envie o comprovante aqui' },
+  pix: { rotulo: 'Pix', detalhe: 'QR Code ou copia e cola, direto no app do banco' },
   dinheiro: { rotulo: 'Dinheiro', detalhe: 'Pague na entrega ou retirada' },
   cartao: { rotulo: 'Cartão', detalhe: 'Crédito ou débito na maquininha, na entrega ou retirada' },
 }
@@ -28,7 +28,7 @@ export const FORMAS_PAGAMENTO = {
 export const STATUS_PEDIDO = {
   novo: { rotulo: 'Novo', cor: 'bg-blush text-magenta' },
   aguardando_pagamento: { rotulo: 'Aguardando Pix', cor: 'bg-ambar-bg text-ambar' },
-  pagamento_enviado: { rotulo: 'Comprovante enviado', cor: 'bg-ouro-palido text-[#7a5f00] ring-1 ring-ouro/40' },
+  pagamento_enviado: { rotulo: 'Pix informado', cor: 'bg-ouro-palido text-[#7a5f00] ring-1 ring-ouro/40' },
   confirmado: { rotulo: 'Pagamento confirmado', cor: 'bg-verde-bg text-verde' },
   separando: { rotulo: 'Separando', cor: 'bg-cream-deep text-magenta-soft' },
   pronto: { rotulo: 'Pronto p/ retirada', cor: 'bg-verde-bg text-verde' },
