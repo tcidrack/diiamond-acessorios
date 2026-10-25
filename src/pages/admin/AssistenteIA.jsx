@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Campo, Erro, Titulo, Toggle, Vazio, useAviso } from '../../components/admin/UI.jsx'
-import { IconeLixo } from '../../components/Icones.jsx'
+import { IconeBaixar, IconeCheck, IconeClipe, IconeLixo, IconeMicrofone, IconeParar, IconeRaio } from '../../components/Icones.jsx'
 import { api } from '../../lib/api.js'
 
 const ABAS = {
@@ -148,7 +148,7 @@ function Simulador() {
       <div className="flex-1 space-y-3 overflow-y-auto bg-cream/50 p-4">
         {mensagens.length === 0 && (
           <div className="space-y-2 pt-6 text-center text-sm text-magenta/45">
-            <p>Experimente perguntar (ou mande um áudio 🎤):</p>
+            <p>Experimente perguntar (ou grave um áudio):</p>
             {['Oi, quanto custa o colar de coração?', 'Vocês entregam no Centro?', 'A peça que comprei escureceu 😢'].map((s) => (
               <button key={s} type="button" onClick={() => setTexto(s)} className="mx-auto block rounded-full bg-white px-3 py-1.5 text-magenta/70 ring-1 ring-blush hover:bg-blush/40">{s}</button>
             ))}
@@ -160,11 +160,11 @@ function Simulador() {
       </div>
       <Erro>{erro}</Erro>
       <form onSubmit={enviar} className="flex gap-2 border-t border-blush p-3">
-        <input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={gravando ? 'Gravando… toque em ■ para enviar' : 'Mensagem da cliente…'} className="campo" disabled={gravando} />
+        <input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={gravando ? 'Gravando… toque em parar para enviar' : 'Mensagem da cliente…'} className="campo" disabled={gravando} />
         <button type="button" onClick={alternarGravacao} disabled={pensando} aria-label={gravando ? 'Parar e enviar áudio' : 'Gravar áudio'} title="Gravar áudio" className={`btn shrink-0 px-3 ${gravando ? 'animate-pulse bg-vermelho text-white' : 'btn-claro'}`}>
-          {gravando ? '■' : '🎤'}
+          {gravando ? <IconeParar /> : <IconeMicrofone />}
         </button>
-        <button type="button" onClick={() => inputAudio.current.click()} disabled={pensando || gravando} aria-label="Escolher arquivo de áudio" title="Escolher arquivo de áudio" className="btn-claro shrink-0 px-3">📎</button>
+        <button type="button" onClick={() => inputAudio.current.click()} disabled={pensando || gravando} aria-label="Escolher arquivo de áudio" title="Escolher arquivo de áudio" className="btn-claro shrink-0 px-3"><IconeClipe /></button>
         <input ref={inputAudio} type="file" accept="audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) enviarAudio(f) }} />
         <button type="submit" disabled={pensando || gravando || !texto.trim()} className="btn-primario">Enviar</button>
       </form>
@@ -196,10 +196,10 @@ export function Balao({ m, onCorrigir }) {
       </div>
       <div className="mt-0.5 flex flex-wrap items-center gap-2 px-1 text-[11px] text-magenta/45">
         {m.autor === 'dona' && <span>você</span>}
-        {(m.origem || m.meta?.origem) === 'pronta' && <span className="rounded-full bg-verde-bg px-2 font-semibold text-verde">⚡ resposta pronta</span>}
+        {(m.origem || m.meta?.origem) === 'pronta' && <span className="inline-flex items-center gap-1 rounded-full bg-verde-bg px-2 font-semibold text-verde"><IconeRaio className="h-3 w-3" /> resposta pronta</span>}
         {acao === 'passar_para_dona' && <span className="rounded-full bg-ambar-bg px-2 font-semibold text-ambar">passou para você</span>}
         {motivo && <span title={motivo} className="max-w-[260px] truncate">{motivo}</span>}
-        {m.corrigido && <span className="text-verde">✓ salvo como exemplo</span>}
+        {m.corrigido && <span className="inline-flex items-center gap-1 text-verde"><IconeCheck className="h-3.5 w-3.5" /> salvo como exemplo</span>}
         {onCorrigir && !corrigindo && <button type="button" onClick={() => setCorrigindo(true)} className="underline">corrigir</button>}
       </div>
     </div>
@@ -373,7 +373,7 @@ function ItemResposta({ item, onAtualizar, onExcluir }) {
     <li className={`card space-y-2 p-3 ${item.ativo ? '' : 'opacity-60'}`}>
       <div className="flex flex-wrap items-center gap-2">
         {item.automatica ? (
-          <span className="rounded-full bg-verde-bg px-2 py-0.5 text-[11px] font-semibold text-verde">⚡ automática</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-verde-bg px-2 py-0.5 text-[11px] font-semibold text-verde"><IconeRaio className="h-3 w-3" /> automática</span>
         ) : (
           <span className="rounded-full bg-blush px-2 py-0.5 text-[11px] font-semibold text-magenta">referência da IA</span>
         )}
@@ -429,7 +429,7 @@ function Exemplos() {
             Quanto mais exemplos reais, mais o bot fala do seu jeito. Os ligados entram no aprendizado (até 60, os mais novos primeiro).
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={importar} disabled={importando} className="btn-ouro">{importando ? 'Importando…' : '⇣ Importar minhas respostas antigas do Direct'}</button>
+            <button type="button" onClick={importar} disabled={importando} className="btn-ouro">{importando ? 'Importando…' : <><IconeBaixar /> Importar minhas respostas antigas do Direct</>}</button>
             <select value={filtro} onChange={(e) => setFiltro(e.target.value)} className="campo w-auto" aria-label="Filtro">
               <option value="todos">Todos</option>
               <option value="ativos">Só os ligados</option>

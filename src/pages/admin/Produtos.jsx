@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { IconeDiamante } from '../../components/Icones.jsx'
+import { IconeArrastar, IconeDiamante, IconeEstrela } from '../../components/Icones.jsx'
 import { Titulo, Toggle, Vazio, Erro, useAviso } from '../../components/admin/UI.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL } from '../../lib/format.js'
@@ -81,7 +81,7 @@ export default function Produtos() {
         </select>
       </div>
       <p className="mt-2 text-xs text-magenta/45">
-        {filtrando ? 'Limpe a busca para reordenar.' : 'Arraste pela alça ⠿ para mudar a ordem na loja (no celular, segure e arraste).'}
+        {filtrando ? 'Limpe a busca para reordenar.' : 'Arraste pela alça (os pontinhos à esquerda) para mudar a ordem na loja (no celular, segure e arraste).'}
       </p>
       <Erro>{erro}</Erro>
 
@@ -115,7 +115,7 @@ function LinhaProduto({ produto: p, arrastavel, onAtualizar, onDuplicar }) {
     <li ref={setNodeRef} style={estilo} className={`card flex items-center gap-3 p-2.5 pr-3 ${isDragging ? 'z-10 shadow-lift' : ''} ${p.ativo ? '' : 'opacity-60'}`}>
       {arrastavel && (
         <button type="button" {...attributes} {...listeners} aria-label={`Mover ${p.nome}`} className="flex h-11 w-6 shrink-0 cursor-grab touch-none items-center justify-center text-magenta/30 active:cursor-grabbing">
-          ⠿
+          <IconeArrastar />
         </button>
       )}
       <Link to={`/admin/produtos/${p.id}`} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-cream">
@@ -130,7 +130,7 @@ function LinhaProduto({ produto: p, arrastavel, onAtualizar, onDuplicar }) {
           <span className={p.estoque === 0 ? 'font-semibold text-vermelho' : ''}>
             {p.estoque === null ? 'estoque livre' : p.estoque === 0 ? 'esgotado' : `${p.estoque} em estoque`}
           </span>
-          {p.destaque && <span className="text-ouro">★ destaque</span>}
+          {p.destaque && <span className="inline-flex items-center gap-1 text-ouro"><IconeEstrela /> destaque</span>}
         </p>
       </Link>
       <div className="hidden sm:block">

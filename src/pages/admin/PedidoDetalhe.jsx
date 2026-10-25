@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { IconeVoltar, IconeWhatsApp } from '../../components/Icones.jsx'
+import { IconeImpressora, IconeVoltar, IconeWhatsApp } from '../../components/Icones.jsx'
 import { Erro, useAviso } from '../../components/admin/UI.jsx'
 import { usePainel } from './AdminLayout.jsx'
 import { api } from '../../lib/api.js'
@@ -71,7 +71,7 @@ export default function PedidoDetalhe() {
         <a href={linkWhatsApp(pedido.cliente_telefone, mensagemStatusCliente(pedido, linkCliente))} target="_blank" rel="noreferrer" className="btn bg-[#25d366] text-white">
           <IconeWhatsApp /> Avisar cliente
         </a>
-        <button type="button" onClick={() => window.print()} className="btn-claro">🖨 Imprimir para separar</button>
+        <button type="button" onClick={() => window.print()} className="btn-claro"><IconeImpressora /> Imprimir para separar</button>
         <select
           value=""
           onChange={(e) => e.target.value && mudarStatus(e.target.value)}

@@ -60,11 +60,12 @@ export default function Dashboard() {
       <Titulo
         acao={config && (
           <button type="button" onClick={alternarLoja} className={config.aberta ? 'btn bg-verde-bg text-verde' : 'btn bg-vermelho-bg text-vermelho'}>
-            {config.aberta ? '● Loja aberta' : '● Loja fechada'} <span className="text-xs font-normal opacity-70">(tocar para mudar)</span>
+            <span className="relative flex h-2.5 w-2.5">{config.aberta && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-verde opacity-50" />}<span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${config.aberta ? 'bg-verde' : 'bg-vermelho'}`} /></span>
+            {config.aberta ? 'Loja aberta' : 'Loja fechada'} <span className="text-xs font-normal opacity-70">(tocar para mudar)</span>
           </button>
         )}
       >
-        Olá! 💖
+        Olá!
       </Titulo>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -81,7 +82,7 @@ export default function Dashboard() {
             <Link to="/admin/pedidos" className="text-sm font-medium text-magenta/60 underline">ver todos</Link>
           </div>
           {resumo.pendentes.length === 0 ? (
-            <Vazio>Tudo em dia por aqui ✨</Vazio>
+            <Vazio>Tudo em dia por aqui.</Vazio>
           ) : (
             <div className="grid gap-3">{resumo.pendentes.slice(0, 8).map((p) => <PedidoCard key={p.id} pedido={p} />)}</div>
           )}

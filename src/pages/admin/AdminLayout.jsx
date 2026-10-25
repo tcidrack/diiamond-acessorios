@@ -1,6 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import Logo from '../../components/Logo.jsx'
+import {
+  IconeAjustes, IconeBrilho, IconeCategorias, IconeCupom, IconeEntrega, IconeExterno, IconeInicio,
+  IconeMensagem, IconeMenu, IconePedidos, IconeProdutos, IconeSair, IconeSino,
+} from '../../components/Icones.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { api } from '../../lib/api.js'
 import { MODO_DEMO } from '../../lib/supabase.js'
@@ -14,19 +18,19 @@ export const usePainel = () => useContext(PainelContext)
 const IA_ATIVA = MODO_DEMO || import.meta.env.VITE_IA_ATIVA === 'true'
 
 const MENU = [
-  { to: '/admin', rotulo: 'Início', icone: '◆', fim: true },
-  { to: '/admin/pedidos', rotulo: 'Pedidos', icone: '▤', contador: 'pendentes' },
-  { to: '/admin/produtos', rotulo: 'Produtos', icone: '◇' },
+  { to: '/admin', rotulo: 'Início', Icone: IconeInicio, fim: true },
+  { to: '/admin/pedidos', rotulo: 'Pedidos', Icone: IconePedidos, contador: 'pendentes' },
+  { to: '/admin/produtos', rotulo: 'Produtos', Icone: IconeProdutos },
   ...(IA_ATIVA
     ? [
-        { to: '/admin/conversas', rotulo: 'Direct', icone: '✉', contador: 'conversasDona' },
-        { to: '/admin/assistente', rotulo: 'Assistente IA', icone: '✦' },
+        { to: '/admin/conversas', rotulo: 'Direct', Icone: IconeMensagem, contador: 'conversasDona' },
+        { to: '/admin/assistente', rotulo: 'Assistente IA', Icone: IconeBrilho },
       ]
     : []),
-  { to: '/admin/categorias', rotulo: 'Categorias', icone: '▦', extra: true },
-  { to: '/admin/entrega', rotulo: 'Entrega', icone: '➤', extra: true },
-  { to: '/admin/cupons', rotulo: 'Cupons', icone: '%', extra: true },
-  { to: '/admin/configuracoes', rotulo: 'Configurações', icone: '⚙', extra: true },
+  { to: '/admin/categorias', rotulo: 'Categorias', Icone: IconeCategorias, extra: true },
+  { to: '/admin/entrega', rotulo: 'Entrega', Icone: IconeEntrega, extra: true },
+  { to: '/admin/cupons', rotulo: 'Cupons', Icone: IconeCupom, extra: true },
+  { to: '/admin/configuracoes', rotulo: 'Configurações', Icone: IconeAjustes, extra: true },
 ]
 
 const STATUS_PENDENTES = ['novo', 'aguardando_pagamento', 'pagamento_enviado', 'confirmado']
@@ -106,7 +110,7 @@ export default function AdminLayout() {
           : `relative flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-sm font-medium transition ${isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}`
       }
     >
-      <span className={mobile ? 'text-lg leading-none' : 'w-5 text-center text-ouro-claro'}>{m.icone}</span>
+      <m.Icone className={mobile ? 'h-[22px] w-[22px]' : 'h-5 w-5 shrink-0 text-ouro-claro'} />
       {m.rotulo}
       {m.contador && contadores[m.contador] > 0 && (
         <span className={`${mobile ? 'absolute top-1 right-[calc(50%-22px)]' : 'ml-auto'} flex h-5 min-w-5 items-center justify-center rounded-full bg-ouro px-1 text-[11px] font-bold text-white`}>
@@ -130,9 +134,9 @@ export default function AdminLayout() {
           </div>
           <nav className="flex flex-col gap-1">{MENU.map((m) => item(m))}</nav>
           <div className="mt-auto space-y-2 pt-6">
-            <a href="/" target="_blank" className="flex min-h-[40px] items-center gap-2 rounded-xl px-3 text-sm text-white/70 hover:bg-white/10">↗ Ver a loja</a>
+            <a href="/" target="_blank" className="flex min-h-[40px] items-center gap-2 rounded-xl px-3 text-sm text-white/70 hover:bg-white/10"><IconeExterno /> Ver a loja</a>
             <button type="button" onClick={async () => { await api.logout(); navegar('/admin/login') }} className="flex min-h-[40px] w-full items-center gap-2 rounded-xl px-3 text-sm text-white/70 hover:bg-white/10">
-              ⎋ Sair
+              <IconeSair /> Sair
             </button>
           </div>
         </aside>
@@ -142,13 +146,13 @@ export default function AdminLayout() {
           <header className="flex items-center gap-3 bg-brand-gradient px-4 py-3 text-white lg:hidden print:hidden">
             <Logo className="h-9 w-9" />
             <p className="flex-1 font-display text-lg">Painel Diiamond</p>
-            <button type="button" onClick={() => setMenuAberto((v) => !v)} className="flex h-10 items-center rounded-xl bg-white/10 px-3 text-sm">Mais ▾</button>
+            <button type="button" onClick={() => setMenuAberto((v) => !v)} className="flex h-10 items-center gap-1.5 rounded-xl bg-white/10 px-3 text-sm"><IconeMenu className="h-4.5 w-4.5" /> Mais</button>
           </header>
           {menuAberto && (
             <nav className="grid grid-cols-2 gap-1 bg-magenta p-3 lg:hidden print:hidden">
               {MENU.filter((m) => m.extra).map((m) => item(m))}
-              <a href="/" target="_blank" className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-sm text-white/70">↗ Ver a loja</a>
-              <button type="button" onClick={async () => { await api.logout(); navegar('/admin/login') }} className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-sm text-white/70">⎋ Sair</button>
+              <a href="/" target="_blank" className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-sm text-white/70"><IconeExterno /> Ver a loja</a>
+              <button type="button" onClick={async () => { await api.logout(); navegar('/admin/login') }} className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-sm text-white/70"><IconeSair /> Sair</button>
             </nav>
           )}
 
@@ -161,7 +165,7 @@ export default function AdminLayout() {
           {!alertasAtivos && !somDestravado() && (
             <div className="flex flex-wrap items-center justify-center gap-2 bg-ouro-palido px-4 py-2 text-center text-xs text-[#7a5f00] print:hidden">
               Toque para ouvir um alerta a cada pedido novo:
-              <button type="button" onClick={ativarAlertas} className="rounded-full bg-ouro px-3 py-1 font-semibold text-white">🔔 Ativar alertas</button>
+              <button type="button" onClick={ativarAlertas} className="inline-flex items-center gap-1.5 rounded-full bg-ouro px-3 py-1 font-semibold text-white"><IconeSino /> Ativar alertas</button>
             </div>
           )}
 

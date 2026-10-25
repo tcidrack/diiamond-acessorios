@@ -33,7 +33,7 @@ export default function Conversas() {
         ))}
       </div>
       {lista.length === 0 ? (
-        <Vazio>{conversas.length ? 'Nenhuma conversa esperando você ✨' : 'As conversas do Direct aparecem aqui quando o Instagram estiver conectado (veja docs/instagram-setup.md).'}</Vazio>
+        <Vazio>{conversas.length ? 'Nenhuma conversa esperando você.' : 'As conversas do Direct aparecem aqui quando o Instagram estiver conectado (veja docs/instagram-setup.md).'}</Vazio>
       ) : (
         <ul className="space-y-2">
           {lista.map((c) => (
