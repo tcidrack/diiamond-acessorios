@@ -39,6 +39,8 @@ Abra http://localhost:5173 (loja) e http://localhost:5173/admin (painel: qualque
    - `VITE_SUPABASE_ANON_KEY` = chave anon
 3. Deploy. Para rodar local com o banco de verdade, copie `.env.example` para `.env` e preencha.
 
+Publicação automática: o projeto da Vercel está ligado a este repositório. Todo `git push` na branch `main` publica o site em https://diiamond-acessorios.vercel.app; outras branches geram um link de prévia.
+
 ### 3. Primeiro acesso ao painel
 Entre em `/admin` e, em **Configurações**, preencha WhatsApp, chave Pix (nome e cidade do recebedor), local de retirada e o **endereço do site** (a IA usa para mandar links). Use "Testar: gerar um Pix de R$ 0,01" e leia no app do banco para conferir. Depois cadastre os **bairros** em Entrega e os **produtos**.
 
