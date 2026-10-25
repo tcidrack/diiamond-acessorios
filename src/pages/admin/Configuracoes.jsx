@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Campo, Erro, Titulo, Toggle, useAviso } from '../../components/admin/UI.jsx'
+import { Campo, CampoSenha, Erro, Titulo, Toggle, useAviso } from '../../components/admin/UI.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { api } from '../../lib/api.js'
 import { numeroParaCampo, parseBRL } from '../../lib/format.js'
@@ -119,9 +119,9 @@ function AlterarSenha() {
         <h2 className="font-display text-lg font-semibold text-magenta">Senha de acesso</h2>
         <p className="mt-0.5 text-xs text-magenta/55">Troca a senha do login que está usando agora{usuario?.email ? <> ({usuario.email})</> : null}.</p>
       </div>
-      <Campo rotulo="Senha atual"><input type="password" required autoComplete="current-password" value={campos.atual} onChange={set('atual')} className="campo" /></Campo>
-      <Campo rotulo="Nova senha" ajuda="Pelo menos 8 caracteres."><input type="password" required autoComplete="new-password" value={campos.nova} onChange={set('nova')} className="campo" /></Campo>
-      <Campo rotulo="Repetir nova senha"><input type="password" required autoComplete="new-password" value={campos.repetir} onChange={set('repetir')} className="campo" /></Campo>
+      <Campo rotulo="Senha atual"><CampoSenha required autoComplete="current-password" value={campos.atual} onChange={set('atual')} /></Campo>
+      <Campo rotulo="Nova senha" ajuda="Pelo menos 8 caracteres."><CampoSenha required autoComplete="new-password" value={campos.nova} onChange={set('nova')} /></Campo>
+      <Campo rotulo="Repetir nova senha"><CampoSenha required autoComplete="new-password" value={campos.repetir} onChange={set('repetir')} /></Campo>
       <Erro>{erro}</Erro>
       <button type="submit" disabled={salvando} className="btn-claro w-full sm:w-auto">{salvando ? 'Alterando…' : 'Alterar senha'}</button>
     </form>

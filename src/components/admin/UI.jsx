@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IconeOlho, IconeOlhoFechado } from '../Icones.jsx'
 
 export function Titulo({ children, acao }) {
   return (
@@ -34,6 +35,25 @@ export function Campo({ rotulo, ajuda, children, className = '' }) {
       {children}
       {ajuda && <span className="mt-1 block text-xs text-magenta/45">{ajuda}</span>}
     </label>
+  )
+}
+
+/** Campo de senha com o olhinho para mostrar/ocultar o que foi digitado. */
+export function CampoSenha({ value, onChange, autoComplete, required }) {
+  const [visivel, setVisivel] = useState(false)
+  return (
+    <span className="relative block">
+      <input type={visivel ? 'text' : 'password'} required={required} autoComplete={autoComplete} value={value} onChange={onChange} className="campo pr-11" />
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); setVisivel((v) => !v) }}
+        aria-label={visivel ? 'Ocultar senha' : 'Mostrar senha'}
+        aria-pressed={visivel}
+        className="absolute inset-y-0 right-1 flex w-10 items-center justify-center rounded-xl text-magenta/50 hover:text-magenta"
+      >
+        {visivel ? <IconeOlhoFechado /> : <IconeOlho />}
+      </button>
+    </span>
   )
 }
 

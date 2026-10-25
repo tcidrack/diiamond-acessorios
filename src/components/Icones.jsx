@@ -179,6 +179,19 @@ export const IconeArrastar = ({ className = 'h-5 w-5' }) => (
     {[8, 16].flatMap((x) => [6, 12, 18].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" />))}
   </svg>
 )
+export const IconeOlho = ({ className = 'h-5 w-5' }) => (
+  <Traco className={className}>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </Traco>
+)
+export const IconeOlhoFechado = ({ className = 'h-5 w-5' }) => (
+  <Traco className={className}>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+    <circle cx="12" cy="12" r="3" />
+    <path d="M4 4l16 16" />
+  </Traco>
+)
 export const IconeEstrela = ({ className = 'h-3.5 w-3.5' }) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
     <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z" />
