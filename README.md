@@ -42,7 +42,9 @@ Abra http://localhost:5173 (loja) e http://localhost:5173/admin (painel: qualque
 Publicação automática: o projeto da Vercel está ligado a este repositório. Todo `git push` na branch `main` publica o site em https://diiamond-acessorios.vercel.app; outras branches geram um link de prévia.
 
 ### 3. Primeiro acesso ao painel
-Entre em `/admin` e, em **Configurações**, preencha WhatsApp, chave Pix (nome e cidade do recebedor), local de retirada e o **endereço do site** (a IA usa para mandar links). Use "Testar: gerar um Pix de R$ 0,01" e leia no app do banco para conferir. Depois cadastre os **bairros** em Entrega e os **produtos**.
+Entre em `/admin` e, em **Configurações**, preencha WhatsApp, chave Pix (nome e cidade do recebedor), local de retirada e o **endereço do site** (a IA usa para mandar links). Depois cadastre os **bairros** em Entrega e os **produtos**.
+
+Cada login pode trocar a própria senha em **Configurações → Senha de acesso**.
 
 Dica: no celular, abra o painel no navegador e use "Adicionar à tela inicial". Toque em **🔔 Ativar alertas** para ouvir o som a cada pedido novo (o painel precisa ficar aberto).
 

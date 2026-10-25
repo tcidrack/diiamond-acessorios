@@ -303,6 +303,11 @@ export const apiDemo = {
     authOuvintes.forEach((fn) => fn(usuarioDemo))
   },
 
+  async alterarSenha(senhaAtual) {
+    await espera(300)
+    if (senhaAtual !== 'demo') throw new Error('No modo demonstração a senha atual é "demo".')
+  },
+
   async logout() {
     usuarioDemo = null
     sessionStorage.removeItem('diamond-demo-user')

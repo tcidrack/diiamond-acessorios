@@ -15,6 +15,9 @@ function ok({ data, error }) {
 function traduzirErro(error) {
   const msg = error?.message || String(error)
   if (/Invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.'
+  if (error?.code === 'same_password' || /should be different/i.test(msg)) return 'A nova senha precisa ser diferente da atual.'
+  if (/Password should be at least/i.test(msg)) return 'A senha precisa ter pelo menos 8 caracteres.'
+  if (error?.code === 'weak_password' || /weak password/i.test(msg)) return 'Senha fraca demais. Misture letras e números.'
   if (/Failed to fetch|NetworkError/i.test(msg)) return 'Sem conexão. Verifique a internet e tente de novo.'
   return msg
 }
@@ -83,6 +86,15 @@ export const apiSupabase = {
       await supabase.auth.signOut()
       throw new Error('Este usuário não tem acesso ao painel.')
     }
+  },
+
+  async alterarSenha(senhaAtual, novaSenha) {
+    const usuario = await this.getUsuario()
+    if (!usuario?.email) throw new Error('Entre de novo no painel e tente outra vez.')
+    // confere a senha atual antes de trocar (e renova o login, exigido pelo Supabase)
+    const { error } = await supabase.auth.signInWithPassword({ email: usuario.email, password: senhaAtual })
+    if (error) throw new Error(/Invalid login credentials/i.test(error.message) ? 'A senha atual está incorreta.' : traduzirErro(error))
+    ok(await supabase.auth.updateUser({ password: novaSenha }))
   },
 
   async logout() {
