@@ -1,0 +1,182 @@
+@import 'tailwindcss';
+
+@theme {
+  /* --- Marca --- */
+  --color-magenta: #880e4f;
+  --color-magenta-soft: #ad1457;
+  --color-rose: #e91e63;
+  --color-rose-light: #f48fb1;
+  --color-blush: #fce4ec;
+  --color-cream: #fff8f3;
+  --color-cream-deep: #fff3e0;
+
+  /* --- Dourado: a loja vende folheado a ouro 18K, é a cor dela --- */
+  --color-ouro: #c9a227;
+  --color-ouro-claro: #e8d5a3;
+  --color-ouro-palido: #faf3e2;
+
+  /* --- Faixas de markup --- */
+  --color-verde: #2e7d32;
+  --color-verde-bg: #c8e6c9;
+  --color-ambar: #8d6e00;
+  --color-ambar-bg: #fff9c4;
+  --color-vermelho: #c62828;
+  --color-vermelho-bg: #ffcdd2;
+
+  /* --- Tipografia --- */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* --- Sombras difusas, quase sem contorno --- */
+  --shadow-soft: 0 1px 2px rgb(136 14 79 / 0.03), 0 8px 28px -12px rgb(136 14 79 / 0.16);
+  --shadow-lift: 0 2px 6px rgb(136 14 79 / 0.05), 0 20px 48px -16px rgb(136 14 79 / 0.24);
+  --shadow-ouro: 0 4px 20px -8px rgb(201 162 39 / 0.35);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    /* Creme que abre para o branco — dá profundidade sem pesar */
+    background-color: var(--color-cream);
+    background-image:
+      radial-gradient(120% 55% at 50% 0%, #fff 0%, transparent 60%),
+      radial-gradient(80% 40% at 100% 100%, rgb(252 228 236 / 0.5) 0%, transparent 70%);
+    background-attachment: fixed;
+    color: #3d2430;
+    /* Evita o zoom automático do iOS ao focar um input */
+    font-size: 16px;
+  }
+
+  /* Números sempre alinhados coluna a coluna */
+  input[inputmode='decimal'],
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Remove as setinhas de number em navegadores que as mostrem */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-rose);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@layer utilities {
+  /* Respeita a barra de gestos do iPhone na barra de ações fixa */
+  .pb-safe {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .bg-brand-gradient {
+    background-image: linear-gradient(135deg, #5c0a36 0%, #880e4f 48%, #b81a63 100%);
+  }
+
+  /* Fio dourado — usado como base do cabeçalho e em divisórias finas */
+  .fio-ouro {
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      var(--color-ouro-claro) 20%,
+      var(--color-ouro) 50%,
+      var(--color-ouro-claro) 80%,
+      transparent
+    );
+  }
+
+  .borda-ouro {
+    border-color: color-mix(in srgb, var(--color-ouro) 45%, transparent);
+  }
+
+  /* Faixa de abas: rola de lado sem a barra cinza atravessada por baixo */
+  .sem-barra {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .sem-barra::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Entrada suave dos cards */
+  .surge {
+    animation: surge 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes surge {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Loja --- */
+@layer components {
+  .btn,
+  .btn-primario,
+  .btn-ouro,
+  .btn-claro,
+  .btn-perigo {
+    @apply inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primario {
+    @apply text-white shadow-soft hover:shadow-lift;
+    background-image: linear-gradient(135deg, #5c0a36 0%, #880e4f 48%, #b81a63 100%);
+  }
+  .btn-ouro {
+    @apply bg-ouro text-white shadow-ouro hover:brightness-105;
+  }
+  .btn-claro {
+    @apply bg-white text-magenta ring-1 ring-blush hover:bg-blush/40;
+  }
+  .btn-perigo {
+    @apply bg-vermelho-bg/60 text-vermelho hover:bg-vermelho-bg;
+  }
+  .card {
+    @apply rounded-3xl bg-white/90 shadow-soft ring-1 ring-blush/60 backdrop-blur-sm;
+  }
+  .campo {
+    @apply min-h-[44px] w-full rounded-xl border border-blush bg-white px-3 py-2 text-[16px] text-[#3d2430] transition placeholder:text-magenta/30 focus:border-ouro-claro focus:ring-2 focus:ring-ouro-claro/40 focus:outline-none;
+  }
+  /* Seletor em pílula (ordenar, material): seta própria no lugar da do navegador */
+  .seletor {
+    @apply min-h-[44px] cursor-pointer appearance-none rounded-full border border-blush bg-white py-2 pr-10 pl-4 text-[15px] font-medium text-magenta shadow-sm transition hover:border-rose-light hover:bg-blush/30 focus:border-ouro-claro focus:ring-2 focus:ring-ouro-claro/40 focus:outline-none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23880e4f' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    background-size: 1rem;
+  }
+  .seletor-lista {
+    animation: seletor-abrir 0.14s ease-out;
+    transform-origin: top left;
+  }
+  @keyframes seletor-abrir {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  }
+  .rotulo {
+    @apply mb-1 block text-xs font-semibold tracking-wide text-magenta/60 uppercase;
+  }
+}

@@ -1,0 +1,5 @@
+project_id = "diamond-loja"
+
+# A Meta chama o webhook sem token do Supabase: a segurança é a assinatura X-Hub-Signature-256.
+[functions.instagram-webhook]
+verify_jwt = false
