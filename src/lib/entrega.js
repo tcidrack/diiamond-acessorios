@@ -69,9 +69,9 @@ export const formatKm = (km) => `${String(Number(km).toFixed(1)).replace('.', ',
 export const soDigitos = (v) => String(v || '').replace(/\D/g, '')
 export const mascaraCep = (v) => soDigitos(v).slice(0, 8).replace(/^(\d{5})(\d)/, '$1-$2')
 
-/** "Granja Portugal · 3,4 km" (o km só aparece em pedido calculado pela distância). */
-export function detalheEntrega(pedido) {
-  return [pedido.bairro_nome, pedido.distancia_km != null ? formatKm(pedido.distancia_km) : null].filter(Boolean).join(' · ')
+/** "Granja Portugal · 3,4 km" (o km só aparece em pedido pela distância e só para a dona: `comKm`). */
+export function detalheEntrega(pedido, { comKm = true } = {}) {
+  return [pedido.bairro_nome, comKm && pedido.distancia_km != null ? formatKm(pedido.distancia_km) : null].filter(Boolean).join(' · ')
 }
 
 /** Valor da entrega para mostrar: "R$ 7,00", "Grátis" ou "A combinar". */

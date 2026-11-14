@@ -162,7 +162,7 @@ export default function PedidoStatus() {
         <dl className="space-y-1 border-t border-blush pt-3">
           <div className="flex justify-between"><dt className="text-magenta/60">Subtotal</dt><dd className="tnum">{formatBRL(pedido.subtotal)}</dd></div>
           {Number(pedido.desconto) > 0 && <div className="flex justify-between text-verde"><dt>Desconto</dt><dd className="tnum">-{formatBRL(pedido.desconto)}</dd></div>}
-          {pedido.tipo_entrega === 'entrega' && <div className="flex justify-between"><dt className="text-magenta/60">Entrega ({detalheEntrega(pedido)})</dt><dd className="tnum">{valorEntrega(pedido)}</dd></div>}
+          {pedido.tipo_entrega === 'entrega' && <div className="flex justify-between"><dt className="text-magenta/60">Entrega ({detalheEntrega(pedido, { comKm: false })})</dt><dd className="tnum">{valorEntrega(pedido)}</dd></div>}
           <div className="flex justify-between text-base font-bold text-magenta"><dt>Total</dt><dd className="tnum">{formatBRL(pedido.total)}</dd></div>
         </dl>
         <div className="space-y-1 border-t border-blush pt-3 text-magenta/70">

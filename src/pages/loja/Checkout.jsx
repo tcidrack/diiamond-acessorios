@@ -4,7 +4,7 @@ import { IconeVoltar } from '../../components/Icones.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, parseBRL } from '../../lib/format.js'
 import { FORMAS_PAGAMENTO, esgotado } from '../../lib/precos.js'
-import { formatKm, mascaraCep, soDigitos } from '../../lib/entrega.js'
+import { mascaraCep, soDigitos } from '../../lib/entrega.js'
 import { itemDoProduto, useCarrinho } from '../../hooks/useCarrinho.jsx'
 import { useLoja } from '../../hooks/useLoja.jsx'
 
@@ -242,8 +242,8 @@ export default function Checkout() {
                           : !freteOk ? cotacao.erro
                             : freteCombinar ? (cotacao.km == null
                               ? <>Não conseguimos calcular a distância agora. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido e não entra no total abaixo.</>
-                              : <>Seu endereço fica a {formatKm(cotacao.km)}. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido (entrega por aplicativo) e não entra no total abaixo.</>)
-                              : <>Entrega: {formatKm(cotacao.km)} · <strong>{taxa > 0 ? formatBRL(taxa) : 'grátis'}</strong></>}
+                              : <>Seu endereço fica fora da área de entrega padrão. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido (entrega por aplicativo) e não entra no total abaixo.</>)
+                              : <>Entrega: <strong>{taxa > 0 ? formatBRL(taxa) : 'grátis'}</strong></>}
                       </div>
                     )}
                   </>
@@ -339,7 +339,7 @@ export default function Checkout() {
               {desconto > 0 && <Linha rotulo={`Cupom ${cupom.codigo}`} valor={`-${formatBRL(desconto)}`} verde />}
               {form.tipo_entrega === 'entrega' && (
                 <Linha
-                  rotulo={modoDistancia && freteOk && cotacao.km != null ? `Entrega (${formatKm(cotacao.km)})` : 'Entrega'}
+                  rotulo="Entrega"
                   valor={freteCombinar ? 'A combinar' : (modoDistancia ? freteOk : bairro) ? (taxa > 0 ? formatBRL(taxa) : 'Grátis') : '—'}
                 />
               )}

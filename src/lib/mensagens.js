@@ -12,7 +12,7 @@ export function mensagemPedidoWhatsApp(pedido, itens, link) {
     `Subtotal: ${formatBRL(pedido.subtotal)}`,
   ]
   if (Number(pedido.desconto) > 0) linhas.push(`Desconto${pedido.cupom_codigo ? ` (${pedido.cupom_codigo})` : ''}: -${formatBRL(pedido.desconto)}`)
-  if (pedido.tipo_entrega === 'entrega') linhas.push(`Entrega (${detalheEntrega(pedido)}): ${pedido.entrega_a_combinar ? 'a combinar' : valorEntrega(pedido)}`)
+  if (pedido.tipo_entrega === 'entrega') linhas.push(`Entrega (${detalheEntrega(pedido, { comKm: false })}): ${pedido.entrega_a_combinar ? 'a combinar' : valorEntrega(pedido)}`)
   linhas.push(`*Total: ${formatBRL(pedido.total)}*`, '')
   linhas.push(`Nome: ${pedido.cliente_nome}`)
   if (pedido.tipo_entrega === 'entrega') {
