@@ -63,8 +63,8 @@ export const apiSupabase = {
     return ok(await q)
   },
 
-  async validarCupom(codigo, subtotal) {
-    return ok(await supabase.rpc('validar_cupom', { p_codigo: codigo, p_subtotal: subtotal }))
+  async validarCupom(codigo, subtotal, telefone) {
+    return ok(await supabase.rpc('validar_cupom', { p_codigo: codigo, p_subtotal: subtotal, p_telefone: telefone || null }))
   },
 
   async criarPedido(payload) {

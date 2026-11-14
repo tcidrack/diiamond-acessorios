@@ -9,6 +9,11 @@ export default function Cupons() {
       <p className="mb-4 text-sm text-magenta/55">
         O cliente digita o código no checkout. Para promoção de um produto só, use o preço promocional no cadastro do produto.
       </p>
+      <p className="mb-4 text-sm text-magenta/55">
+        <b>Limite total</b>: quantas vezes o cupom pode ser usado na loja (ex.: 10 cupons).{' '}
+        <b>Limite por cliente</b>: quantas vezes o mesmo WhatsApp pode usar (ex.: PRIMEIRACOMPRA = 1).
+        Pode usar os dois juntos ou deixar em branco para não ter limite. Pedido cancelado devolve o cupom.
+      </p>
       <CrudLista
         tabela="cupons"
         ordem="id"
@@ -20,20 +25,28 @@ export default function Cupons() {
           { chave: 'valor', rotulo: 'Valor', tipo: 'dinheiro', largura: 'w-24' },
           { chave: 'minimo', rotulo: 'Compra mín. (R$)', tipo: 'dinheiro', largura: 'w-32' },
           { chave: 'validade', rotulo: 'Válido até', tipo: 'data', largura: 'w-40' },
-          { chave: 'usos_max', rotulo: 'Limite de usos', tipo: 'numero', placeholder: 'sem limite', largura: 'w-28' },
+          { chave: 'usos_max', rotulo: 'Limite total', tipo: 'numero', placeholder: 'sem limite', largura: 'w-28' },
+          { chave: 'usos_por_cliente', rotulo: 'Limite por cliente', tipo: 'numero', placeholder: 'sem limite', largura: 'w-32' },
           { chave: 'ativo', rotulo: 'Ativo', tipo: 'toggle', largura: '' },
         ]}
-        mostrar={(r) => ({ ...r, valor: numeroParaCampo(r.valor), minimo: numeroParaCampo(r.minimo), validade: r.validade || '', usos_max: r.usos_max ?? '' })}
-        novoRegistro={() => ({ codigo: '', tipo: 'percentual', valor: '10', minimo: '', validade: '', usos_max: '', ativo: true })}
+        mostrar={(r) => ({ ...r, valor: numeroParaCampo(r.valor), minimo: numeroParaCampo(r.minimo), validade: r.validade || '', usos_max: r.usos_max ?? '', usos_por_cliente: r.usos_por_cliente ?? '' })}
+        novoRegistro={() => ({ codigo: '', tipo: 'percentual', valor: '10', minimo: '', validade: '', usos_max: '', usos_por_cliente: '', ativo: true })}
         preparar={({ usos, ...r }) => {
           const codigo = String(r.codigo || '').trim().toUpperCase().replace(/\s+/g, '')
           if (!codigo) throw new Error('Informe o código do cupom.')
           const valor = parseBRL(r.valor)
           if (!(valor > 0)) throw new Error('Informe o valor do desconto.')
           if (r.tipo === 'percentual' && valor >= 100) throw new Error('A porcentagem precisa ser menor que 100.')
+          const limite = (v, nome) => {
+            if (String(v ?? '').trim() === '') return null
+            const n = Number(String(v).trim())
+            if (!Number.isInteger(n) || n < 1) throw new Error(`${nome} precisa ser um número inteiro a partir de 1 (ou em branco para sem limite).`)
+            return n
+          }
           return {
-            ...r, codigo, valor, minimo: parseBRL(r.minimo) ?? 0,
-            validade: r.validade || null, usos_max: r.usos_max ? parseInt(r.usos_max, 10) : null,
+            ...r, codigo, valor, minimo: parseBRL(r.minimo) ?? 0, validade: r.validade || null,
+            usos_max: limite(r.usos_max, 'O limite total'),
+            usos_por_cliente: limite(r.usos_por_cliente, 'O limite por cliente'),
           }
         }}
       />

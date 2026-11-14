@@ -58,12 +58,21 @@ export default function Checkout() {
     if (bairros?.length === 0 && form.tipo_entrega === 'entrega') setForm((f) => ({ ...f, tipo_entrega: 'retirada' }))
   }, [bairros, form.tipo_entrega])
 
-  // o subtotal mudou: o desconto do cupom precisa ser recalculado
+  // só os dígitos, e só quando o número está completo: o cupom pode ter limite por cliente
+  const digitosTel = form.cliente_telefone.replace(/\D/g, '')
+  const telCupom = digitosTel.length >= 10 ? digitosTel : ''
+
+  // o subtotal ou o WhatsApp mudou: o cupom precisa ser conferido de novo
   useEffect(() => {
     if (!cupom) return
-    api.validarCupom(cupom.codigo, subtotal).then((r) => (r.ok ? setCupom(r) : (setCupom(null), setCupomErro(r.erro))))
+    const t = setTimeout(() => {
+      api.validarCupom(cupom.codigo, subtotal, telCupom)
+        .then((r) => (r.ok ? setCupom(r) : (setCupom(null), setCupomErro(r.erro))))
+        .catch(() => {})
+    }, 400)
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotal])
+  }, [subtotal, telCupom])
 
   const campo = (chave) => (e) => setForm((f) => ({ ...f, [chave]: e.target.value }))
   const listaBairros = bairros || []
@@ -77,7 +86,7 @@ export default function Checkout() {
     setCupomErro('')
     if (!cupomTexto.trim()) return
     try {
-      const r = await api.validarCupom(cupomTexto, subtotal)
+      const r = await api.validarCupom(cupomTexto, subtotal, telCupom)
       if (r.ok) setCupom(r)
       else setCupomErro(r.erro)
     } catch (e) {

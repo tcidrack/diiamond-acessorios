@@ -62,7 +62,7 @@ function seed() {
       { id: 2, nome: 'Bairro Norte', taxa: 8, ativo: true, ordem: 2 },
       { id: 3, nome: 'Bairro Sul', taxa: 10, ativo: true, ordem: 3 },
     ],
-    cupons: [{ id: 1, codigo: 'BEMVINDA', tipo: 'percentual', valor: 10, minimo: 0, validade: null, usos_max: null, usos: 0, ativo: true }],
+    cupons: [{ id: 1, codigo: 'BEMVINDA', tipo: 'percentual', valor: 10, minimo: 0, validade: null, usos_max: null, usos_por_cliente: null, usos: 0, ativo: true }],
     pedidos: [],
     pedido_itens: [],
     ia_config: {
@@ -138,11 +138,23 @@ function lerArquivo(file) {
   })
 }
 
-function validarCupomDb(db, codigo, subtotal) {
+// mesmo WhatsApp com ou sem o 55 conta como a mesma pessoa (igual a tel_cliente no banco)
+function telCliente(t) {
+  const d = String(t || '').replace(/\D/g, '')
+  return d.length >= 12 && d.startsWith('55') ? d.slice(2) : d
+}
+
+function validarCupomDb(db, codigo, subtotal, telefone) {
   const c = db.cupons.find((x) => x.ativo && x.codigo.toUpperCase() === String(codigo).trim().toUpperCase())
   if (!c) return { ok: false, erro: 'Cupom inválido' }
   if (c.validade && c.validade < new Date().toISOString().slice(0, 10)) return { ok: false, erro: 'Cupom expirado' }
-  if (c.usos_max && c.usos >= c.usos_max) return { ok: false, erro: 'Cupom esgotado' }
+  // usos = pedidos não cancelados com o cupom: cancelar devolve o uso
+  const usados = db.pedidos.filter((pd) => pd.cupom_codigo === c.codigo && pd.status !== 'cancelado')
+  if (c.usos_max && usados.length >= c.usos_max) return { ok: false, erro: 'Cupom esgotado' }
+  const tel = telCliente(telefone)
+  if (c.usos_por_cliente && tel.length >= 10 && usados.filter((pd) => telCliente(pd.cliente_telefone) === tel).length >= c.usos_por_cliente) {
+    return { ok: false, erro: c.usos_por_cliente === 1 ? 'Você já usou este cupom' : `Você já usou este cupom ${c.usos_por_cliente} vezes` }
+  }
   if (subtotal < c.minimo) return { ok: false, erro: `Compra mínima de R$ ${Number(c.minimo).toFixed(2).replace('.', ',')} para este cupom` }
   const desconto = c.tipo === 'percentual' ? Math.round(subtotal * c.valor) / 100 : Number(c.valor)
   return { ok: true, codigo: c.codigo, tipo: c.tipo, valor: c.valor, desconto: Math.min(desconto, subtotal) }
@@ -188,9 +200,9 @@ export const apiDemo = {
     return copia(db.bairros_entrega.filter((b) => todos || b.ativo).sort((a, b) => a.ordem - b.ordem))
   },
 
-  async validarCupom(codigo, subtotal) {
+  async validarCupom(codigo, subtotal, telefone) {
     await espera()
-    return validarCupomDb(carregar(), codigo, subtotal)
+    return validarCupomDb(carregar(), codigo, subtotal, telefone)
   },
 
   async criarPedido(p) {
@@ -222,7 +234,7 @@ export const apiDemo = {
     let desconto = 0
     let cupom = null
     if (p.cupom?.trim()) {
-      const r = validarCupomDb(db, p.cupom, subtotal)
+      const r = validarCupomDb(db, p.cupom, subtotal, tel)
       if (!r.ok) throw new Error(r.erro)
       desconto = r.desconto
       cupom = r.codigo
@@ -248,7 +260,6 @@ export const apiDemo = {
       const prod = db.produtos.find((x) => x.id === it.produto_id)
       if (prod.estoque !== null) prod.estoque -= it.quantidade
     }
-    if (cupom) db.cupons.find((c) => c.codigo === cupom).usos += 1
 
     const id = proximoId(db)
     const pedido = {
