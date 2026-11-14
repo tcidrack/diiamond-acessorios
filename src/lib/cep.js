@@ -1,17 +1,14 @@
-import { haversine } from './entrega.js'
+import { geocodificarGeoapify } from './geoapify.js'
 
 /**
  * Busca o endereço e a localização de um CEP direto do navegador.
  *
  * 1. Endereço: AwesomeAPI (traz rua, bairro e um ponto) → reservas BrasilAPI/ViaCEP (só endereço).
- * 2. Ponto conferido no OpenStreetMap (Photon): a AwesomeAPI às vezes erra feio em rua numerada
- *    ("Rua 339" existe em vários conjuntos). Ordem de confiança:
- *    rua achada no bairro certo → ponto da AwesomeAPI se estiver perto do bairro → centro do bairro.
- * Sem ponto nenhum, a entrega fica "a combinar" e a venda não trava.
+ * 2. Ponto conferido pela Geoapify (ver geoapify.js): a AwesomeAPI às vezes erra feio em rua
+ *    numerada ("Rua 339" existe em vários conjuntos).
+ * Sem ponto conferido, a entrega fica "a combinar" e a venda não trava.
  */
 
-const PHOTON = 'https://photon.komoot.io/api/'
-const TOLERANCIA_KM = 2.5 // ponto da AwesomeAPI aceito se estiver até aqui do centro do bairro
 const cache = new Map()
 
 async function json(url, ms = 8000) {
@@ -28,11 +25,6 @@ async function json(url, ms = 8000) {
 }
 
 export const normalizar = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
-
-async function photon(q) {
-  const r = await json(`${PHOTON}?${new URLSearchParams({ q, limit: '8' })}`, 5000)
-  return (r?.features || []).map((f) => ({ ...f.properties, lng: f.geometry?.coordinates?.[0], lat: f.geometry?.coordinates?.[1] }))
-}
 
 /** Endereço básico do CEP (sem conferir o ponto). */
 async function enderecoDoCep(c) {
@@ -51,29 +43,9 @@ async function enderecoDoCep(c) {
   return null
 }
 
-/** Escolhe o ponto mais confiável para o endereço (ver ordem no topo). */
+/** Ponto conferido pela Geoapify; sem conferência, sem ponto (= frete a combinar). */
 export async function conferirPonto(end) {
-  const cidade = normalizar(end.cidade)
-  const bairro = normalizar(end.bairro)
-  const rua = normalizar(end.logradouro)
-  const naCidade = (f) => !cidade || normalizar(f.city) === cidade
-  const temPonto = (f) => Number.isFinite(f.lat) && Number.isFinite(f.lng)
-
-  const [ruas, bairros] = await Promise.all([
-    rua ? photon(`${end.logradouro} ${end.bairro} ${end.cidade}`) : [],
-    bairro ? photon(`${end.bairro} ${end.cidade}`) : [],
-  ])
-
-  const daRua = ruas.find((f) => temPonto(f) && naCidade(f) && f.type === 'street' && normalizar(f.name) === rua
-    && (normalizar(f.district) === bairro || String(f.postcode || '').replace(/\D/g, '') === end.cep))
-  if (daRua) return { lat: daRua.lat, lng: daRua.lng, fonte: 'rua' }
-
-  const doBairro = bairros.find((f) => temPonto(f) && naCidade(f) && f.type !== 'street' && normalizar(f.name) === bairro)
-  if (end.lat != null && (!doBairro || haversine(end.lat, end.lng, doBairro.lat, doBairro.lng) <= TOLERANCIA_KM)) {
-    return { lat: end.lat, lng: end.lng, fonte: 'cep' }
-  }
-  if (doBairro) return { lat: doBairro.lat, lng: doBairro.lng, fonte: 'bairro' }
-  return { lat: null, lng: null, fonte: null }
+  return (await geocodificarGeoapify(end)) || { lat: null, lng: null, fonte: null }
 }
 
 /** `{ cep, logradouro, bairro, cidade, uf, lat, lng, fonte }` (lat/lng null se não achou) ou null se o CEP não existe. */
