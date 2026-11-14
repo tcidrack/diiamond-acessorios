@@ -8,6 +8,7 @@ import { Titulo, Toggle, Vazio, Erro, useAviso } from '../../components/admin/UI
 import { api } from '../../lib/api.js'
 import { formatBRL } from '../../lib/format.js'
 import { emPromocao, percentualDesconto, precoFinal } from '../../lib/precos.js'
+import { temRascunho } from '../../lib/rascunho.js'
 
 export default function Produtos() {
   const navegar = useNavigate()
@@ -72,6 +73,12 @@ export default function Produtos() {
     <>
       {aviso}
       <Titulo acao={<Link to="/admin/produtos/novo" className="btn-primario">+ Novo produto</Link>}>Produtos</Titulo>
+      {temRascunho('novo') && (
+        <Link to="/admin/produtos/novo" className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-ouro-palido px-4 py-3 text-sm text-magenta ring-1 ring-ouro/30">
+          <span>Você tem um produto novo que ainda não foi salvo.</span>
+          <span className="font-semibold underline">Continuar</span>
+        </Link>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto" className="campo flex-1" />

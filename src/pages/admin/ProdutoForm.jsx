@@ -6,6 +6,7 @@ import { api } from '../../lib/api.js'
 import { arredondar90, formatBRL, numeroParaCampo, parseBRL, slugify } from '../../lib/format.js'
 import EditorFoto from '../../components/admin/EditorFoto.jsx'
 import { CORES_PRONTAS, fundoBolinha } from '../../lib/precos.js'
+import { apagarRascunho, gravarRascunho, lerRascunho } from '../../lib/rascunho.js'
 
 const MATERIAIS = ['Folheado a ouro 18K', 'Prata 925', 'Aço inox', 'Aço inox dourado', 'Banhado a ródio', 'Bijuteria', 'Acetato']
 
@@ -34,24 +35,85 @@ export default function ProdutoForm() {
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useAviso()
+  // rascunho automático: o que está na tela fica guardado no aparelho até salvar
+  const chaveRascunho = novo ? 'novo' : id
+  const [pronto, setPronto] = useState(false)
+  const [base, setBase] = useState('') // formulário como está salvo, para saber se mudou algo
+  const [recuperado, setRecuperado] = useState(null) // data do rascunho recuperado
 
   useEffect(() => {
+    let ativo = true
+    setPronto(false)
+    setRecuperado(null)
     api.listCategorias({ todas: true }).then(setCategorias)
     api.listProdutos({ todos: true }).then(setTodos).catch(() => {})
-    if (novo) return
-    api.getProduto(id).then((p) => {
-      if (!p) return setErro('Produto não encontrado.')
+    const carregar = novo ? Promise.resolve(VAZIO) : api.getProduto(id).then((p) => {
+      if (!p) { setErro('Produto não encontrado.'); return null }
       setOriginal(p)
       setImagens(p.imagens || [])
-      setForm({
+      return {
         nome: p.nome, descricao: p.descricao || '', categoria_id: p.categoria_id ? String(p.categoria_id) : '',
         material: p.material || '', preco: numeroParaCampo(p.preco), preco_promocional: numeroParaCampo(p.preco_promocional),
         controlarEstoque: p.estoque !== null, estoque: p.estoque === null ? '' : String(p.estoque),
         ativo: p.ativo, destaque: p.destaque,
         grupo_cor: p.grupo_cor || null, cor_nome: p.cor_nome || '', cor_hex: p.cor_hex || '',
-      })
+      }
     })
+    carregar.then(async (salvoForm) => {
+      if (!ativo || !salvoForm) return
+      const r = await lerRascunho(novo ? 'novo' : id).catch(() => null)
+      if (!ativo) return
+      setBase(JSON.stringify(salvoForm))
+      if (r?.form) {
+        // o grupo de cores grava na hora no banco: vale o que está salvo, não o do rascunho
+        setForm({ ...salvoForm, ...r.form, grupo_cor: salvoForm.grupo_cor })
+        setTipoDesconto(r.tipoDesconto || 'preco')
+        setPercentual(r.percentual || '')
+        setPendentes((r.fotos || []).filter((f) => f?.file).map((f) => ({ ...f, url: URL.createObjectURL(f.file) })))
+        setRecuperado(r.salvoEm || new Date().toISOString())
+      } else {
+        setForm(salvoForm)
+      }
+      setPronto(true)
+    })
+    return () => { ativo = false }
   }, [id, novo])
+
+  const alterado = pronto && (JSON.stringify(form) !== base || pendentes.length > 0)
+
+  // grava o rascunho um instante depois de cada mudança (e apaga se voltou a ficar igual ao salvo)
+  useEffect(() => {
+    if (!pronto || salvando) return
+    const t = setTimeout(() => {
+      if (alterado) gravarRascunho(chaveRascunho, { form, tipoDesconto, percentual }, pendentes)
+      else apagarRascunho(chaveRascunho)
+    }, 600)
+    return () => clearTimeout(t)
+  }, [pronto, salvando, alterado, chaveRascunho, form, tipoDesconto, percentual, pendentes])
+
+  // fechar ou recarregar a aba com coisa não salva: o navegador pergunta antes
+  useEffect(() => {
+    if (!alterado) return
+    const avisar = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [alterado])
+
+  const descartarRascunho = async () => {
+    await apagarRascunho(chaveRascunho)
+    pendentes.forEach((p) => URL.revokeObjectURL(p.url))
+    setPendentes([])
+    setForm(JSON.parse(base))
+    setTipoDesconto('preco')
+    setPercentual('')
+    setRecuperado(null)
+  }
+
+  const cancelar = async () => {
+    if (alterado && !confirm('Descartar o que você preencheu e não salvou?')) return
+    await apagarRascunho(chaveRascunho)
+    navegar('/admin/produtos')
+  }
 
   // libera a memória das prévias só ao sair da tela
   const pendentesRef = useRef(pendentes)
@@ -171,6 +233,9 @@ export default function ProdutoForm() {
       }
 
       setAviso('Produto salvo!')
+      setBase(JSON.stringify(form))
+      setRecuperado(null)
+      await apagarRascunho(chaveRascunho)
       if (novo) navegar(`/admin/produtos/${salvo.id}`, { replace: true })
       else setOriginal((o) => ({ ...o, ...salvo }))
     } catch (err) {
@@ -197,6 +262,16 @@ export default function ProdutoForm() {
         <IconeVoltar className="h-4 w-4" /> Produtos
       </Link>
       <h1 className="font-display text-3xl font-semibold text-magenta">{novo ? 'Novo produto' : form.nome || 'Produto'}</h1>
+      {recuperado && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-ouro-palido px-4 py-3 text-sm text-magenta ring-1 ring-ouro/30" role="status">
+          <span>
+            Recuperamos o que você estava preenchendo
+            ({new Date(recuperado).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}).
+            Confira e toque em Salvar.
+          </span>
+          <button type="button" onClick={descartarRascunho} className="text-xs font-medium text-magenta/60 underline">Descartar rascunho</button>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         <div className="space-y-4">
@@ -336,7 +411,7 @@ export default function ProdutoForm() {
       {/* Barra fixa de salvar */}
       <div className="pb-safe fixed inset-x-0 bottom-16 z-30 border-t border-blush bg-white/95 px-4 pt-3 backdrop-blur lg:bottom-0 lg:left-64">
         <div className="mx-auto flex max-w-6xl gap-2">
-          <Link to="/admin/produtos" className="btn-claro">Cancelar</Link>
+          <button type="button" onClick={cancelar} className="btn-claro">Cancelar</button>
           <button type="submit" disabled={salvando} className="btn-primario flex-1">{salvando ? 'Salvando…' : 'Salvar produto'}</button>
         </div>
       </div>
