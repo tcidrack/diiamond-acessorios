@@ -32,6 +32,12 @@ export default function Footer() {
           )}
         </div>
       </div>
+      <p className="pb-6 text-center text-[11px] font-medium tracking-wide text-magenta/55">
+        Feito com ♥ por Thalison Cidrack ·{' '}
+        <a href="https://instagram.com/cidrack.dev" target="_blank" rel="noreferrer" className="font-bold underline-offset-2 hover:underline">
+          @cidrack.dev
+        </a>
+      </p>
     </footer>
   )
 }

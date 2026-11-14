@@ -219,6 +219,13 @@ export default function Checkout() {
               <Opcao ativo={form.tipo_entrega === 'retirada'} onClick={() => setForm((f) => ({ ...f, tipo_entrega: 'retirada' }))} titulo="Retirada" detalhe="Sem taxa" />
             </div>
 
+            {form.tipo_entrega === 'entrega' && horarioEntrega.length > 0 && (
+              <div className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-magenta/80">
+                <p className="font-semibold text-magenta">🕒 Horário de entrega</p>
+                {horarioEntrega.map((l) => <p key={l}>{l}</p>)}
+              </div>
+            )}
+
             {form.tipo_entrega === 'entrega' ? (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {modoDistancia ? (
@@ -283,12 +290,6 @@ export default function Checkout() {
                   <p className="sm:col-span-2 rounded-2xl bg-blush/40 px-4 py-2.5 text-sm text-magenta">
                     Faltam <strong>{formatBRL(faltaGratis)}</strong> para a entrega sair <strong>grátis</strong> 💖
                   </p>
-                )}
-                {horarioEntrega.length > 0 && (
-                  <div className="sm:col-span-2 rounded-2xl bg-cream px-4 py-3 text-sm text-magenta/80">
-                    <p className="font-semibold text-magenta">🕒 Horário de entrega</p>
-                    {horarioEntrega.map((l) => <p key={l}>{l}</p>)}
-                  </div>
                 )}
               </div>
             ) : (
