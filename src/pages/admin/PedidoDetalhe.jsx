@@ -120,7 +120,7 @@ export default function PedidoDetalhe() {
                   {pedido.cep ? ` · CEP ${pedido.cep.replace(/^(\d{5})/, '$1-')}` : ''}{pedido.referencia ? ` (ref.: ${pedido.referencia})` : ''}
                   {pedido.entrega_a_combinar && (
                     <span className="mt-1 block rounded-xl bg-ambar-bg px-3 py-2 text-ambar">
-                      <strong>Frete a combinar</strong> ({formatKm(pedido.distancia_km)}): passe o valor da entrega por aplicativo para a cliente pelo WhatsApp.
+                      <strong>Frete a combinar</strong>{pedido.distancia_km != null ? ` (${formatKm(pedido.distancia_km)})` : ' (não foi possível medir a distância)'}: passe o valor da entrega por aplicativo para a cliente pelo WhatsApp.
                     </span>
                   )}
                 </>

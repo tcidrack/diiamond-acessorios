@@ -37,6 +37,8 @@ export function haversine(lat1, lng1, lat2, lng2) {
 
 export function calcularFrete(cfg, lat, lng) {
   if (cfg?.origem_lat == null || cfg?.origem_lng == null) return { ok: false, erro: 'A loja ainda não configurou o ponto de saída das entregas.' }
+  // sem a localização do CEP: frete a combinar (igual ao banco)
+  if (lat == null || lng == null) return { ok: true, km: null, taxa: 0, a_combinar: true, sem_local: true }
   const r = regrasEntrega(cfg)
   const km = Math.round(haversine(Number(cfg.origem_lat), Number(cfg.origem_lng), lat, lng) * r.entrega_fator_rota * 10) / 10
   return { ok: true, ...taxaPorKm(km, cfg) }

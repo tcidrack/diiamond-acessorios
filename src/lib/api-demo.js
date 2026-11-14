@@ -1,5 +1,6 @@
 import { precoFinal } from './precos.js'
 import { calcularFrete } from './entrega.js'
+import { buscarCep } from './cep.js'
 import { encontrarRespostaPronta } from './respostas-prontas.js'
 
 /**
@@ -215,19 +216,10 @@ export const apiDemo = {
 
   // Demonstração: consulta o CEP direto do navegador e guarda no localStorage
   async cotarEntrega(cep) {
-    const c = String(cep || '').replace(/\D/g, '')
-    if (c.length !== 8) return { ok: false, erro: 'Informe um CEP válido.' }
-    const db = carregar()
-    db.ceps = db.ceps || {}
-    if (!db.ceps[c]) {
-      const r = await fetch(`https://cep.awesomeapi.com.br/json/${c}`).then((x) => (x.ok ? x.json() : null)).catch(() => null)
-      if (!r?.lat) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
-      db.ceps[c] = { cep: c, lat: Number(r.lat), lng: Number(r.lng), logradouro: r.address || '', bairro: r.district || '', cidade: r.city || '', uf: r.state || '' }
-      gravar(db)
-    }
-    const end = db.ceps[c]
-    const frete = calcularFrete(db.config_loja, end.lat, end.lng)
-    return { ...end, ...frete }
+    if (String(cep || '').replace(/\D/g, '').length !== 8) return { ok: false, erro: 'Informe um CEP válido.' }
+    const end = await buscarCep(cep)
+    if (!end) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
+    return { ...end, ...calcularFrete(carregar().config_loja, end.lat, end.lng) }
   },
 
   async criarPedido(p) {
@@ -273,12 +265,13 @@ export const apiDemo = {
     if (p.tipo_entrega === 'entrega') {
       if (String(p.endereco || '').trim().length < 5) throw new Error('Informe o endereço de entrega.')
       if (cfg.entrega_modo === 'distancia') {
-        const end = db.ceps?.[cep]
-        if (!end) throw new Error('Informe um CEP válido.')
-        frete = calcularFrete(cfg, end.lat, end.lng)
+        if (cep.length !== 8) throw new Error('Informe um CEP válido.')
+        const lat = p.lat == null || p.lat === '' ? null : Number(p.lat)
+        const lng = p.lng == null || p.lng === '' ? null : Number(p.lng)
+        frete = calcularFrete(cfg, lat, lng)
         if (!frete.ok) throw new Error(frete.erro)
         taxa = frete.taxa
-        bairroNome = String(p.bairro || '').trim() || end.bairro
+        bairroNome = String(p.bairro || '').trim()
       } else {
         bairro = db.bairros_entrega.find((b) => b.id === Number(p.bairro_id) && b.ativo)
         if (!bairro) throw new Error('Escolha um bairro de entrega.')

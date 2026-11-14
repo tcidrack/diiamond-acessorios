@@ -118,7 +118,7 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
     setBuscando(true)
     try {
       const r = await api.cotarEntrega(cfg.origem_cep)
-      if (r?.lat == null) throw new Error(r?.erro || 'CEP não encontrado.')
+      if (r?.lat == null) throw new Error(r?.erro || 'Não foi possível achar a localização desse CEP. Tente de novo em instantes.')
       setCfg((c) => ({ ...c, origem_lat: r.lat, origem_lng: r.lng }))
       setOrigemAchada([r.logradouro, r.bairro, r.cidade].filter(Boolean).join(' · '))
     } catch (e) {
@@ -212,7 +212,9 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
                 : !sim.ok ? <span className="text-vermelho">{sim.erro}</span>
                   : <>
                       {[sim.logradouro, sim.bairro].filter(Boolean).join(' · ')}<br />
-                      <strong>{formatKm(sim.km)}</strong> → {sim.a_combinar ? <strong>frete a combinar</strong> : <strong>{formatBRL(sim.taxa)}</strong>}
+                      {sim.km == null
+                        ? <>Localização do CEP não encontrada → <strong>frete a combinar</strong></>
+                        : <><strong>{formatKm(sim.km)}</strong> → {sim.a_combinar ? <strong>frete a combinar</strong> : <strong>{formatBRL(sim.taxa)}</strong>}</>}
                     </>}
             </p>
           )}

@@ -148,6 +148,8 @@ export default function Checkout() {
         ...form,
         troco_para: troco,
         cupom: cupom?.codigo || '',
+        // localização do CEP (o banco recalcula a taxa com ela)
+        ...(modoDistancia && form.tipo_entrega === 'entrega' ? { lat: cotacao?.lat ?? null, lng: cotacao?.lng ?? null } : {}),
         itens: itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
       })
       const { forma_pagamento, troco_para, observacao, cepDoBairro, ...dadosCliente } = form
@@ -238,7 +240,9 @@ export default function Checkout() {
                       <div className={`sm:col-span-2 rounded-2xl px-4 py-3 text-sm ${cotacao.carregando ? 'bg-cream text-magenta/60' : freteCombinar ? 'bg-ambar-bg text-ambar' : freteOk ? 'bg-verde-bg text-verde' : 'bg-vermelho-bg/60 text-vermelho'}`} role="status">
                         {cotacao.carregando ? 'Calculando a entrega…'
                           : !freteOk ? cotacao.erro
-                            : freteCombinar ? <>Seu endereço fica a {formatKm(cotacao.km)}. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido (entrega por aplicativo) e não entra no total abaixo.</>
+                            : freteCombinar ? (cotacao.km == null
+                              ? <>Não conseguimos calcular a distância agora. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido e não entra no total abaixo.</>
+                              : <>Seu endereço fica a {formatKm(cotacao.km)}. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido (entrega por aplicativo) e não entra no total abaixo.</>)
                               : <>Entrega: {formatKm(cotacao.km)} · <strong>{taxa > 0 ? formatBRL(taxa) : 'grátis'}</strong></>}
                       </div>
                     )}
@@ -335,7 +339,7 @@ export default function Checkout() {
               {desconto > 0 && <Linha rotulo={`Cupom ${cupom.codigo}`} valor={`-${formatBRL(desconto)}`} verde />}
               {form.tipo_entrega === 'entrega' && (
                 <Linha
-                  rotulo={modoDistancia && freteOk ? `Entrega (${formatKm(cotacao.km)})` : 'Entrega'}
+                  rotulo={modoDistancia && freteOk && cotacao.km != null ? `Entrega (${formatKm(cotacao.km)})` : 'Entrega'}
                   valor={freteCombinar ? 'A combinar' : (modoDistancia ? freteOk : bairro) ? (taxa > 0 ? formatBRL(taxa) : 'Grátis') : '—'}
                 />
               )}

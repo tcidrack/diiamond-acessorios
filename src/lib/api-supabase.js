@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { buscarCep } from './cep.js'
 
 /**
  * Acesso a dados de verdade (Supabase). A interface é a mesma de api-demo.js:
@@ -67,9 +68,12 @@ export const apiSupabase = {
     return ok(await supabase.rpc('validar_cupom', { p_codigo: codigo, p_subtotal: subtotal, p_telefone: telefone || null }))
   },
 
-  /** Entrega por distância: endereço do CEP + taxa calculada no servidor. */
+  /** Entrega por distância: o celular busca o CEP e o banco calcula a taxa (o pedido recalcula de novo). */
   async cotarEntrega(cep) {
-    return this.funcao('cep-entrega', { cep })
+    const end = await buscarCep(cep)
+    if (!end) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
+    const frete = ok(await supabase.rpc('calcular_entrega', { p_cep: end.cep, p_lat: end.lat, p_lng: end.lng }))
+    return { ...end, ...frete }
   },
 
   async criarPedido(payload) {
