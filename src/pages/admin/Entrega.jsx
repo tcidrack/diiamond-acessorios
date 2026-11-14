@@ -4,6 +4,7 @@ import { Campo, Erro, Titulo, useAviso } from '../../components/admin/UI.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, numeroParaCampo, parseBRL } from '../../lib/format.js'
 import { PADRAO_ENTREGA, formatKm, mascaraCep, soDigitos, tabelaExemplo } from '../../lib/entrega.js'
+import { lerCoordenadas } from '../../lib/cep.js'
 
 const CAMPOS_NUM = Object.keys(PADRAO_ENTREGA)
 
@@ -107,6 +108,7 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
   const [origemAchada, setOrigemAchada] = useState('')
   const [simCep, setSimCep] = useState('')
   const [sim, setSim] = useState(null)
+  const [colado, setColado] = useState('')
 
   const set = (k) => (e) => setCfg((c) => ({ ...c, [k]: e.target.value }))
   const numeros = () => Object.fromEntries(CAMPOS_NUM.map((k) => [k, parseBRL(cfg[k])]))
@@ -126,6 +128,15 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
     } finally {
       setBuscando(false)
     }
+  }
+
+  // ajuste fino: coordenadas ou link do Google Maps colados pela dona
+  const usarColado = (texto) => {
+    setColado(texto)
+    const p = lerCoordenadas(texto)
+    if (!p) return
+    setCfg((c) => ({ ...c, origem_lat: p.lat, origem_lng: p.lng }))
+    setOrigemAchada('ponto colado do mapa')
   }
 
   const salvar = async () => {
@@ -180,6 +191,10 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
             <a className="underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${cfg.origem_lat},${cfg.origem_lng}`}>ver no mapa</a>
           </p>
         )}
+        <Campo rotulo="Ponto exato (opcional)" ajuda="Para mais precisão: no Google Maps, segure o dedo na porta da loja, copie os números que aparecem (ex.: -3.78292, -38.60191) ou o link, e cole aqui. Depois toque em Salvar.">
+          <input value={colado} onChange={(e) => usarColado(e.target.value)} className="campo" placeholder="Cole as coordenadas ou o link do mapa" />
+          {colado && !lerCoordenadas(colado) && <p className="mt-1 text-xs text-vermelho">Não reconheci as coordenadas nesse texto.</p>}
+        </Campo>
 
         <div className="grid grid-cols-2 gap-3">
           <Campo rotulo="Taxa mínima (R$)"><input inputMode="decimal" value={cfg.entrega_taxa_base} onChange={set('entrega_taxa_base')} className="campo tnum" /></Campo>
@@ -211,7 +226,10 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
               {sim.carregando ? 'Calculando…'
                 : !sim.ok ? <span className="text-vermelho">{sim.erro}</span>
                   : <>
-                      {[sim.logradouro, sim.bairro].filter(Boolean).join(' · ')}<br />
+                      {[sim.logradouro, sim.bairro].filter(Boolean).join(' · ')}
+                      {sim.lat != null && <> · <a className="text-xs underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${sim.lat},${sim.lng}`}>ver no mapa</a>
+                        {sim.fonte === 'bairro' && <span className="text-xs text-magenta/55"> (centro do bairro)</span>}</>}
+                      <br />
                       {sim.km == null
                         ? <>Localização do CEP não encontrada → <strong>frete a combinar</strong></>
                         : <><strong>{formatKm(sim.km)}</strong> → {sim.a_combinar ? <strong>frete a combinar</strong> : <strong>{formatBRL(sim.taxa)}</strong>}</>}
