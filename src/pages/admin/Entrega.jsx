@@ -4,7 +4,8 @@ import { Campo, Erro, Titulo, useAviso } from '../../components/admin/UI.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, numeroParaCampo, parseBRL } from '../../lib/format.js'
 import { PADRAO_ENTREGA, formatKm, mascaraCep, soDigitos, tabelaExemplo } from '../../lib/entrega.js'
-import { lerCoordenadas } from '../../lib/cep.js'
+import { buscarEndereco } from '../../lib/geoapify.js'
+import MapaPino from '../../components/admin/MapaPino.jsx'
 
 const CAMPOS_NUM = Object.keys(PADRAO_ENTREGA)
 
@@ -108,7 +109,10 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
   const [origemAchada, setOrigemAchada] = useState('')
   const [simCep, setSimCep] = useState('')
   const [sim, setSim] = useState(null)
-  const [colado, setColado] = useState('')
+  const [endereco, setEndereco] = useState('')
+  const [buscandoEnd, setBuscandoEnd] = useState(false)
+  const [achadoEnd, setAchadoEnd] = useState(null)
+  const [cidadeOrigem, setCidadeOrigem] = useState({ cidade: '', uf: '' })
 
   const set = (k) => (e) => setCfg((c) => ({ ...c, [k]: e.target.value }))
   const numeros = () => Object.fromEntries(CAMPOS_NUM.map((k) => [k, parseBRL(cfg[k])]))
@@ -123,6 +127,8 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
       if (r?.lat == null) throw new Error(r?.erro || 'Não foi possível achar a localização desse CEP. Tente de novo em instantes.')
       setCfg((c) => ({ ...c, origem_lat: r.lat, origem_lng: r.lng }))
       setOrigemAchada([r.logradouro, r.bairro, r.cidade].filter(Boolean).join(' · '))
+      setCidadeOrigem({ cidade: r.cidade || '', uf: r.uf || '' })
+      setAchadoEnd(null)
     } catch (e) {
       setErro(e.message)
     } finally {
@@ -130,13 +136,29 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
     }
   }
 
-  // ajuste fino: coordenadas ou link do Google Maps colados pela dona
-  const usarColado = (texto) => {
-    setColado(texto)
-    const p = lerCoordenadas(texto)
-    if (!p) return
+  // ajuste fino: endereço com número da loja (depois a dona arrasta o pino até a porta)
+  const buscarPorEndereco = async () => {
+    setErro('')
+    setAchadoEnd(null)
+    if (!endereco.trim()) return setErro('Digite o endereço da loja, ex.: Rua José Abílio, 804.')
+    setBuscandoEnd(true)
+    try {
+      const perto = cfg.origem_lat != null ? { lat: Number(cfg.origem_lat), lng: Number(cfg.origem_lng) } : null
+      const r = await buscarEndereco(endereco, { ...cidadeOrigem, perto })
+      if (!r) throw new Error('Não achamos esse endereço. Confira o nome da rua (ex.: Rua José Abílio, 804) ou ajuste o pino no mapa.')
+      setCfg((c) => ({ ...c, origem_lat: r.lat, origem_lng: r.lng }))
+      setAchadoEnd(r)
+      setOrigemAchada('')
+    } catch (e) {
+      setErro(e.message)
+    } finally {
+      setBuscandoEnd(false)
+    }
+  }
+
+  const moverPino = (p) => {
     setCfg((c) => ({ ...c, origem_lat: p.lat, origem_lng: p.lng }))
-    setOrigemAchada('ponto colado do mapa')
+    setAchadoEnd((a) => ({ ...(a || {}), movido: true }))
   }
 
   const salvar = async () => {
@@ -185,16 +207,27 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
           </div>
         </Campo>
         {origemAchada && <p className="-mt-2 text-xs text-verde">Achado: {origemAchada}</p>}
-        {cfg.origem_lat != null && (
-          <p className="-mt-2 text-xs text-magenta/45">
-            Ponto: {Number(cfg.origem_lat).toFixed(5)}, {Number(cfg.origem_lng).toFixed(5)} ·{' '}
-            <a className="underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${cfg.origem_lat},${cfg.origem_lng}`}>ver no mapa</a>
+        <Campo rotulo="Endereço exato da loja (opcional)" ajuda="Para mais precisão: digite a rua e o número e toque em Buscar. Depois confira o pino no mapa e, se precisar, arraste até a porta.">
+          <div className="flex gap-2">
+            <input value={endereco} onChange={(e) => setEndereco(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), buscarPorEndereco())}
+              className="campo" placeholder="Ex.: Rua José Abílio, 804" autoComplete="street-address" />
+            <button type="button" onClick={buscarPorEndereco} disabled={buscandoEnd} className="btn-claro shrink-0">{buscandoEnd ? 'Buscando…' : 'Buscar'}</button>
+          </div>
+        </Campo>
+        {achadoEnd?.rotulo && !achadoEnd.movido && (
+          <p className={`-mt-2 text-xs ${achadoEnd.achouNumero ? 'text-verde' : 'text-amber-700'}`}>
+            {achadoEnd.achouNumero ? <>Achado: {achadoEnd.rotulo}</> : <>Achamos a rua ({achadoEnd.rotulo}), mas não o número: arraste o pino até a porta da loja.</>}
           </p>
         )}
-        <Campo rotulo="Ponto exato (opcional)" ajuda="Para mais precisão: no Google Maps, segure o dedo na porta da loja, copie os números que aparecem (ex.: -3.78292, -38.60191) ou o link, e cole aqui. Depois toque em Salvar.">
-          <input value={colado} onChange={(e) => usarColado(e.target.value)} className="campo" placeholder="Cole as coordenadas ou o link do mapa" />
-          {colado && !lerCoordenadas(colado) && <p className="mt-1 text-xs text-vermelho">Não reconheci as coordenadas nesse texto.</p>}
-        </Campo>
+        {cfg.origem_lat != null && (
+          <div className="space-y-1">
+            <MapaPino ponto={{ lat: Number(cfg.origem_lat), lng: Number(cfg.origem_lng) }} onMover={moverPino} />
+            <p className="text-xs text-magenta/45">
+              {achadoEnd?.movido ? 'Pino ajustado. ' : 'Arraste o pino (ou toque no mapa) para marcar a porta da loja. '}
+              Depois toque em <strong>Salvar valores da entrega</strong>.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Campo rotulo="Taxa mínima (R$)"><input inputMode="decimal" value={cfg.entrega_taxa_base} onChange={set('entrega_taxa_base')} className="campo tnum" /></Campo>

@@ -59,28 +59,3 @@ export async function buscarCep(cep) {
   cache.set(c, r)
   return r
 }
-
-/**
- * Lê coordenadas coladas pela dona: "-3.78292, -38.60191" ou links do Google Maps
- * (…/@-3.78,-38.60,17z, ?q=-3.78,-38.60, !3d-3.78!4d-38.60). Devolve { lat, lng } ou null.
- */
-export function lerCoordenadas(texto) {
-  let s = String(texto || '')
-  try { s = decodeURIComponent(s) } catch { /* texto com % solto: usa como está */ }
-  s = s.replace(/\s+/g, ' ')
-  const num = String.raw`(-?\d{1,3}\.\d+)`
-  const padroes = [
-    new RegExp(String.raw`!3d${num}!4d${num}`),
-    new RegExp(String.raw`@${num},\s?${num}`),
-    new RegExp(String.raw`[?&](?:q|query|ll|destination)=${num},\s?${num}`),
-    new RegExp(String.raw`^\s*${num}\s*[,;]\s*${num}\s*$`),
-  ]
-  for (const re of padroes) {
-    const m = s.match(re)
-    if (!m) continue
-    const lat = Number(m[1])
-    const lng = Number(m[2])
-    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat || lng)) return { lat, lng }
-  }
-  return null
-}

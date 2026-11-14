@@ -69,6 +69,40 @@ export async function geocodificarGeoapify(end) {
   return null
 }
 
+/**
+ * Endereço digitado pela dona (ex.: "Rua José Abílio, 804") → `{ lat, lng, rotulo, achouNumero }` ou null.
+ * Só aceita a rua digitada (a Geoapify às vezes devolve o mesmo número em outra rua) e procura
+ * perto de `perto` (ponto do CEP), se houver.
+ */
+export async function buscarEndereco(texto, { cidade = '', uf = '', perto = null } = {}) {
+  if (!GEOAPIFY_KEY) return null
+  const [ruaTexto, resto = ''] = String(texto || '').split(',').map((s) => s.trim())
+  const numero = (resto.match(/\d+/) || String(texto).match(/\b\d{1,5}\b/) || [''])[0]
+  const rua = norm(ruaTexto.replace(/\d+/g, ''))
+  if (!rua) return null
+  const raio = perto?.lat != null ? { filter: `circle:${perto.lng},${perto.lat},8000`, bias: `proximity:${perto.lng},${perto.lat}` } : { filter: 'countrycode:br' }
+  const base = { ...raio, limit: '10' }
+  const [a, b] = await Promise.all([
+    chamar('search', { ...base, street: ruaTexto.replace(/\d+/g, '').trim(), housenumber: numero, city: cidade, state: uf }),
+    chamar('search', { ...base, text: [texto, cidade, uf].filter(Boolean).join(', ') }),
+  ])
+  const mesmaRua = (x) => Number.isFinite(x.lat) && Number.isFinite(x.lon) && norm(x.street || x.name).includes(rua.replace(/^(rua|avenida|av\.?|travessa|tv\.?) /, ''))
+  let todos = [...a, ...b].filter(mesmaRua)
+  // número desconhecido no mapa: procura só a rua (a dona arrasta o pino até a porta)
+  if (!todos.length && numero) {
+    todos = (await chamar('search', { ...base, street: ruaTexto.replace(/\d+/g, '').trim(), city: cidade, state: uf })).filter(mesmaRua)
+  }
+  const comNumero = numero && todos.find((x) => String(x.housenumber || '') === numero)
+  const r = comNumero || todos[0]
+  if (!r) return null
+  return {
+    lat: r.lat,
+    lng: r.lon,
+    achouNumero: !!comNumero,
+    rotulo: [comNumero ? `${r.street}, ${r.housenumber}` : r.street || r.name, r.suburb, r.city].filter(Boolean).join(' · '),
+  }
+}
+
 /** Distância de moto pelas ruas, em km (1 casa), ou null se não deu. */
 export async function rotaKm(origem, destino) {
   if (!GEOAPIFY_KEY || origem?.lat == null || destino?.lat == null) return null
