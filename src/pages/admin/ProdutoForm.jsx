@@ -4,7 +4,7 @@ import { IconeDiamante, IconeLixo, IconeVoltar } from '../../components/Icones.j
 import { Campo, Erro, Toggle, useAviso } from '../../components/admin/UI.jsx'
 import { api } from '../../lib/api.js'
 import { arredondar90, formatBRL, numeroParaCampo, parseBRL, slugify } from '../../lib/format.js'
-import { comprimirImagem } from '../../lib/imagem.js'
+import EditorFoto from '../../components/admin/EditorFoto.jsx'
 
 const MATERIAIS = ['Folheado a ouro 18K', 'Prata 925', 'Aço inox', 'Aço inox dourado', 'Banhado a ródio', 'Bijuteria', 'Acetato']
 
@@ -22,7 +22,9 @@ export default function ProdutoForm() {
   const [form, setForm] = useState(VAZIO)
   const [original, setOriginal] = useState(null)
   const [imagens, setImagens] = useState([]) // já salvas: { id, url, path, ordem }
-  const [pendentes, setPendentes] = useState([]) // novas: { chave, file, url }
+  const [pendentes, setPendentes] = useState([]) // novas, já enquadradas: { chave, file, original, url }
+  const [fila, setFila] = useState([]) // fotos esperando o editor: { fonte, tipo: 'nova'|'pendente'|'salva', alvo }
+  const [filaTotal, setFilaTotal] = useState(0)
   const [categorias, setCategorias] = useState([])
   const [tipoDesconto, setTipoDesconto] = useState('preco') // 'preco' | 'percentual'
   const [percentual, setPercentual] = useState('')
@@ -67,10 +69,43 @@ export default function ProdutoForm() {
     }
   }
 
+  // cada foto escolhida passa pelo editor para ela enquadrar, uma de cada vez
   const escolherFotos = (e) => {
     const arquivos = [...(e.target.files || [])].filter((f) => f.type.startsWith('image/'))
     e.target.value = ''
-    setPendentes((p) => [...p, ...arquivos.map((file) => ({ chave: crypto.randomUUID(), file, url: URL.createObjectURL(file) }))])
+    if (!arquivos.length) return
+    setFilaTotal((t) => (fila.length ? t + arquivos.length : arquivos.length))
+    setFila((l) => [...l, ...arquivos.map((file) => ({ fonte: file, tipo: 'nova' }))])
+  }
+
+  const ajustar = (item) => {
+    setFilaTotal(1)
+    setFila([item])
+  }
+
+  const proximaDaFila = () => setFila((l) => l.slice(1))
+
+  const confirmarFoto = async (file) => {
+    const atual = fila[0]
+    if (atual.tipo === 'nova') {
+      setPendentes((l) => [...l, { chave: crypto.randomUUID(), file, original: atual.fonte, url: URL.createObjectURL(file) }])
+    } else if (atual.tipo === 'pendente') {
+      setPendentes((l) => l.map((p) => {
+        if (p.chave !== atual.alvo.chave) return p
+        URL.revokeObjectURL(p.url)
+        return { ...p, file, url: URL.createObjectURL(file) }
+      }))
+    } else {
+      // foto já salva: sobe a nova no mesmo lugar e apaga a antiga
+      const antiga = atual.alvo
+      const nova = await api.uploadImagemProduto(Number(id), file, antiga.ordem)
+      const lista = imagens.map((i) => (i.id === antiga.id ? nova : i))
+      setImagens(lista)
+      await api.excluirImagem(antiga).catch(() => {})
+      await api.reordenar('produto_imagens', lista.map((i) => i.id)).catch(() => {})
+      setAviso('Foto ajustada!')
+    }
+    proximaDaFila()
   }
 
   const removerSalva = async (img) => {
@@ -120,8 +155,8 @@ export default function ProdutoForm() {
       // fotos novas sobem depois que o produto existe (precisam do id)
       let ordem = imagens.length
       for (const p of pendentes) {
-        const arquivo = await comprimirImagem(p.file)
-        const img = await api.uploadImagemProduto(salvo.id, arquivo, ordem++)
+        // já sai do editor quadrada, em WebP e no tamanho certo
+        const img = await api.uploadImagemProduto(salvo.id, p.file, ordem++)
         setImagens((l) => [...l, img])
         setPendentes((l) => l.filter((x) => x.chave !== p.chave))
       }
@@ -165,16 +200,20 @@ export default function ProdutoForm() {
                   <img src={img.url} alt="" className="h-full w-full object-cover" />
                   {i === 0 && <span className="absolute top-1.5 left-1.5 rounded-full bg-ouro px-2 py-0.5 text-[10px] font-bold text-white">CAPA</span>}
                   <div className="absolute inset-x-1.5 bottom-1.5 flex justify-between gap-1">
-                    {i > 0 && <button type="button" onClick={() => tornarCapa(img)} className="rounded-lg bg-white/90 px-2 py-1 text-[11px] font-medium text-magenta">Capa</button>}
-                    <button type="button" onClick={() => removerSalva(img)} aria-label="Apagar foto" className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-vermelho"><IconeLixo className="h-4 w-4" /></button>
+                    {i > 0 && <button type="button" onClick={() => tornarCapa(img)} className="rounded-lg bg-white/90 px-1.5 py-1 text-[11px] font-medium text-magenta">Capa</button>}
+                    <button type="button" onClick={() => ajustar({ fonte: img.url, tipo: 'salva', alvo: img })} className="ml-auto rounded-lg bg-white/90 px-1.5 py-1 text-[11px] font-medium text-magenta">Ajustar</button>
                   </div>
+                  <button type="button" onClick={() => removerSalva(img)} aria-label="Apagar foto" className="absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-vermelho"><IconeLixo className="h-4 w-4" /></button>
                 </div>
               ))}
               {pendentes.map((p) => (
                 <div key={p.chave} className="relative aspect-square overflow-hidden rounded-2xl ring-2 ring-dashed ring-ouro/60">
                   <img src={p.url} alt="" className="h-full w-full object-cover opacity-80" />
                   <span className="absolute top-1.5 left-1.5 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-magenta">{salvando ? 'enviando…' : 'nova'}</span>
-                  <button type="button" onClick={() => setPendentes((l) => l.filter((x) => x.chave !== p.chave))} aria-label="Tirar foto" className="absolute right-1.5 bottom-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-vermelho"><IconeLixo className="h-4 w-4" /></button>
+                  <div className="absolute inset-x-1.5 bottom-1.5 flex justify-between gap-1">
+                    <button type="button" disabled={salvando} onClick={() => ajustar({ fonte: p.original, tipo: 'pendente', alvo: p })} className="rounded-lg bg-white/90 px-2 py-1 text-[11px] font-medium text-magenta">Ajustar</button>
+                    <button type="button" disabled={salvando} onClick={() => { URL.revokeObjectURL(p.url); setPendentes((l) => l.filter((x) => x.chave !== p.chave)) }} aria-label="Tirar foto" className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-vermelho"><IconeLixo className="h-4 w-4" /></button>
+                  </div>
                 </div>
               ))}
               <button type="button" onClick={() => inputFoto.current.click()} className="flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-blush text-magenta/50 transition hover:border-ouro hover:bg-ouro-palido hover:text-magenta">
@@ -263,6 +302,18 @@ export default function ProdutoForm() {
       </div>
 
       <Erro>{erro}</Erro>
+
+      {fila[0] && (
+        <EditorFoto
+          key={`${filaTotal}-${fila.length}`}
+          fonte={fila[0].fonte}
+          titulo={fila[0].tipo === 'nova' ? 'Enquadrar foto' : 'Ajustar foto'}
+          progresso={filaTotal > 1 ? `Foto ${filaTotal - fila.length + 1} de ${filaTotal}` : null}
+          onConfirmar={confirmarFoto}
+          onPular={fila.length > 1 ? proximaDaFila : null}
+          onCancelar={() => setFila([])}
+        />
+      )}
 
       {/* Barra fixa de salvar */}
       <div className="pb-safe fixed inset-x-0 bottom-16 z-30 border-t border-blush bg-white/95 px-4 pt-3 backdrop-blur lg:bottom-0 lg:left-64">
