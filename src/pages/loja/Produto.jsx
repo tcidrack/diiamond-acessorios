@@ -3,10 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import Preco from '../../components/Preco.jsx'
 import Quantidade from '../../components/Quantidade.jsx'
 import ProductCard from '../../components/ProductCard.jsx'
+import BolinhasCor from '../../components/BolinhasCor.jsx'
 import { IconeDiamante, IconeVoltar, IconeWhatsApp } from '../../components/Icones.jsx'
 import { api } from '../../lib/api.js'
 import { linkWhatsApp } from '../../lib/format.js'
-import { esgotado, percentualDesconto } from '../../lib/precos.js'
+import { esgotado, percentualDesconto, variantesDe } from '../../lib/precos.js'
 import { useCarrinho } from '../../hooks/useCarrinho.jsx'
 import { useLoja } from '../../hooks/useLoja.jsx'
 
@@ -24,6 +25,9 @@ export default function Produto() {
     let ativo = true
     setFotoAtiva(0)
     setQtd(1)
+    // troca de cor: mostra na hora o que já está carregado e atualiza em seguida
+    const daLista = produtos.find((p) => p.slug === slug || String(p.id) === slug)
+    if (daLista) setProduto(daLista)
     api.getProduto(slug).then((p) => {
       if (!ativo) return
       setProduto(p && p.ativo ? p : null)
@@ -31,6 +35,7 @@ export default function Produto() {
     }).catch(() => ativo && setCarregando(false))
     window.scrollTo({ top: 0 })
     return () => { ativo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug])
 
   useEffect(() => {
@@ -56,7 +61,10 @@ export default function Produto() {
   const semEstoque = esgotado(produto)
   const off = percentualDesconto(produto)
   const max = produto.estoque ?? 50
-  const parecidos = produtos.filter((p) => p.categoria_id === produto.categoria_id && p.id !== produto.id && !esgotado(p)).slice(0, 4)
+  const variantes = variantesDe(produto, produtos)
+  // as outras cores já aparecem nas bolinhas: não repete em "Você também pode gostar"
+  const parecidos = produtos.filter((p) => p.categoria_id === produto.categoria_id && p.id !== produto.id && !esgotado(p)
+    && !(produto.grupo_cor && p.grupo_cor === produto.grupo_cor)).slice(0, 4)
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -109,6 +117,15 @@ export default function Produto() {
           <span aria-hidden="true" className="fio-ouro block h-px" />
 
           <Preco produto={produto} grande />
+
+          {variantes.length > 1 && (
+            <div>
+              <p className="text-sm text-magenta/70">
+                Cor{produto.cor_nome ? <>: <strong className="font-semibold text-magenta">{produto.cor_nome}</strong></> : null}
+              </p>
+              <div className="mt-1"><BolinhasCor opcoes={variantes} atualId={produto.id} max={12} grande /></div>
+            </div>
+          )}
 
           {semEstoque ? (
             <p className="rounded-2xl bg-blush/60 px-4 py-3 text-sm font-medium text-magenta">Esgotado no momento.</p>

@@ -8,7 +8,7 @@ import { encontrarRespostaPronta } from './respostas-prontas.js'
  * Login do painel na demonstração: qualquer e-mail com a senha "demo".
  */
 
-const CHAVE = 'diamond-demo-v2' // v2: respostas prontas + Gemini
+const CHAVE = 'diamond-demo-v3' // v3: cores do mesmo modelo
 const canal = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('diamond-demo') : null
 const ouvintes = new Set()
 
@@ -28,6 +28,7 @@ function seed() {
     id, nome, slug: nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-'),
     descricao: `${nome} em ${material.toLowerCase()}. Peça delicada, ótima para o dia a dia e para presentear. Acompanha embalagem para presente.`,
     categoria_id, material, preco, preco_promocional, estoque, ativo: true, destaque, ordem: id,
+    grupo_cor: null, cor_nome: '', cor_hex: '',
     created_at: new Date().toISOString(),
   })
 
@@ -40,9 +41,13 @@ function seed() {
     p(6, 'Kit Trio de Brincos', 8, 'Folheado a ouro 18K', 45.9, 39.9, null, true, '✦', ['#faf3e2', '#880e4f']),
     p(7, 'Piranha Pérola', 9, 'Acetato', 19.9, null, 20, false, '❀', ['#fce4ec', '#f48fb1']),
     p(8, 'Bracelete Liso', 7, 'Folheado a ouro 18K', 42.9, null, 6, false, '◯', ['#e8d5a3', '#880e4f']),
+    p(9, 'Colar Coração Vazado Prata', 4, 'Prata 925', 52.9, null, 4, false, '♡', ['#f5f5f5', '#9e9e9e']),
   ]
+  // exemplo de cores do mesmo modelo: o colar coração no dourado e na prata
+  Object.assign(produtos[2], { grupo_cor: 'demo-coracao', cor_nome: 'Dourado', cor_hex: '#d4af37' })
+  Object.assign(produtos[8], { grupo_cor: 'demo-coracao', cor_nome: 'Prata', cor_hex: '#c4c7cc' })
   const cores = [['#e8d5a3', '#c9a227', '◇'], ['#f5f5f5', '#bdbdbd', '○'], ['#fce4ec', '#c9a227', '♡'], ['#fff3e0', '#ad1457', '∞'],
-    ['#eeeeee', '#9e9e9e', '⌇'], ['#faf3e2', '#880e4f', '✦'], ['#fce4ec', '#f48fb1', '❀'], ['#e8d5a3', '#880e4f', '◯']]
+    ['#eeeeee', '#9e9e9e', '⌇'], ['#faf3e2', '#880e4f', '✦'], ['#fce4ec', '#f48fb1', '❀'], ['#e8d5a3', '#880e4f', '◯'], ['#f5f5f5', '#9e9e9e', '♡']]
   const produto_imagens = produtos.map((prod, i) => ({ id: i + 1, produto_id: prod.id, url: foto(...cores[i]), path: null, ordem: 0 }))
 
   return {

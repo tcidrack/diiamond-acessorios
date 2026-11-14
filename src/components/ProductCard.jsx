@@ -1,13 +1,19 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import BolinhasCor from './BolinhasCor.jsx'
 import Preco from './Preco.jsx'
 import { IconeDiamante, IconeSacola } from './Icones.jsx'
-import { esgotado, percentualDesconto } from '../lib/precos.js'
+import { esgotado, percentualDesconto, variantesDe } from '../lib/precos.js'
 import { useCarrinho } from '../hooks/useCarrinho.jsx'
 import { useLoja } from '../hooks/useLoja.jsx'
 
-export default function ProductCard({ produto }) {
+export default function ProductCard({ produto: original }) {
   const { adicionar } = useCarrinho()
-  const { config } = useLoja()
+  const { config, produtos } = useLoja()
+  // tocar numa bolinha de cor troca o card para aquela cor, sem sair do lugar
+  const variantes = variantesDe(original, produtos)
+  const [selecionadoId, setSelecionadoId] = useState(original.id)
+  const produto = variantes.find((v) => v.id === selecionadoId) || original
   const off = percentualDesconto(produto)
   const semEstoque = esgotado(produto)
   const poucas = config?.mostrar_ultimas !== false && !semEstoque && produto.estoque !== null && produto.estoque <= 3
@@ -51,6 +57,9 @@ export default function ProductCard({ produto }) {
         <Link to={`/produto/${produto.slug || produto.id}`} className="line-clamp-2 font-display text-[15px] leading-snug font-semibold text-magenta sm:text-base">
           {produto.nome}
         </Link>
+        {variantes.length > 1 && (
+          <BolinhasCor opcoes={variantes} atualId={produto.id} onEscolher={(v) => setSelecionadoId(v.id)} />
+        )}
         <div className="mt-auto flex items-end justify-between gap-2 pt-1">
           <Preco produto={produto} />
           <button

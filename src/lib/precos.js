@@ -54,3 +54,49 @@ export function proximosStatus(pedido) {
   }
   return fluxo[pedido.status] || []
 }
+
+// ---------------- cores do mesmo modelo ----------------
+
+/** Cores prontas para a bolinha. `metal` ganha um brilho. */
+export const CORES_PRONTAS = [
+  { nome: 'Prata', hex: '#c4c7cc', metal: true },
+  { nome: 'Dourado', hex: '#d4af37', metal: true },
+  { nome: 'Rosé', hex: '#dba596', metal: true },
+  { nome: 'Pérola', hex: '#f1e9da' },
+  { nome: 'Branco', hex: '#ffffff' },
+  { nome: 'Preto', hex: '#222222' },
+  { nome: 'Vermelho', hex: '#d32f2f' },
+  { nome: 'Rosa', hex: '#f06292' },
+  { nome: 'Lilás', hex: '#b39ddb' },
+  { nome: 'Roxo', hex: '#7b1fa2' },
+  { nome: 'Azul', hex: '#1e63c6' },
+  { nome: 'Azul claro', hex: '#7cc4f0' },
+  { nome: 'Verde', hex: '#2e7d32' },
+  { nome: 'Verde água', hex: '#4fc3b5' },
+  { nome: 'Amarelo', hex: '#f5c518' },
+  { nome: 'Laranja', hex: '#f57c00' },
+  { nome: 'Nude', hex: '#e3c4a8' },
+  { nome: 'Marrom', hex: '#795548' },
+]
+
+const METAIS = new Set(CORES_PRONTAS.filter((c) => c.metal).map((c) => c.hex.toLowerCase()))
+
+/** Fundo da bolinha: a cor escolhida (metais com brilho) ou, sem cor, a primeira foto do produto. */
+export function fundoBolinha(produto) {
+  const hex = String(produto.cor_hex || '').toLowerCase()
+  if (/^#[0-9a-f]{6}$/.test(hex)) {
+    return METAIS.has(hex)
+      ? { background: `linear-gradient(135deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,.12) 100%), ${hex}` }
+      : { background: hex }
+  }
+  const foto = produto.imagens?.[0]?.url
+  return foto ? { backgroundImage: `url("${foto}")`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: '#e5e1dc' }
+}
+
+/** Todas as cores do modelo (inclui o próprio produto), na ordem da vitrine. Vazio se não tem grupo. */
+export function variantesDe(produto, produtos) {
+  if (!produto?.grupo_cor) return []
+  const lista = produtos.filter((p) => p.grupo_cor === produto.grupo_cor && p.ativo !== false)
+  if (!lista.some((p) => p.id === produto.id)) lista.push(produto)
+  return lista.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) || a.id - b.id)
+}

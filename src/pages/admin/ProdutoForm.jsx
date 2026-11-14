@@ -5,12 +5,14 @@ import { Campo, Erro, Toggle, useAviso } from '../../components/admin/UI.jsx'
 import { api } from '../../lib/api.js'
 import { arredondar90, formatBRL, numeroParaCampo, parseBRL, slugify } from '../../lib/format.js'
 import EditorFoto from '../../components/admin/EditorFoto.jsx'
+import { CORES_PRONTAS, fundoBolinha } from '../../lib/precos.js'
 
 const MATERIAIS = ['Folheado a ouro 18K', 'Prata 925', 'Aço inox', 'Aço inox dourado', 'Banhado a ródio', 'Bijuteria', 'Acetato']
 
 const VAZIO = {
   nome: '', descricao: '', categoria_id: '', material: '', preco: '', preco_promocional: '',
   controlarEstoque: true, estoque: '1', ativo: true, destaque: false,
+  grupo_cor: null, cor_nome: '', cor_hex: '',
 }
 
 export default function ProdutoForm() {
@@ -26,6 +28,7 @@ export default function ProdutoForm() {
   const [fila, setFila] = useState([]) // fotos esperando o editor: { fonte, tipo: 'nova'|'pendente'|'salva', alvo }
   const [filaTotal, setFilaTotal] = useState(0)
   const [categorias, setCategorias] = useState([])
+  const [todos, setTodos] = useState([]) // para ligar as cores do mesmo modelo
   const [tipoDesconto, setTipoDesconto] = useState('preco') // 'preco' | 'percentual'
   const [percentual, setPercentual] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -34,6 +37,7 @@ export default function ProdutoForm() {
 
   useEffect(() => {
     api.listCategorias({ todas: true }).then(setCategorias)
+    api.listProdutos({ todos: true }).then(setTodos).catch(() => {})
     if (novo) return
     api.getProduto(id).then((p) => {
       if (!p) return setErro('Produto não encontrado.')
@@ -44,6 +48,7 @@ export default function ProdutoForm() {
         material: p.material || '', preco: numeroParaCampo(p.preco), preco_promocional: numeroParaCampo(p.preco_promocional),
         controlarEstoque: p.estoque !== null, estoque: p.estoque === null ? '' : String(p.estoque),
         ativo: p.ativo, destaque: p.destaque,
+        grupo_cor: p.grupo_cor || null, cor_nome: p.cor_nome || '', cor_hex: p.cor_hex || '',
       })
     })
   }, [id, novo])
@@ -149,6 +154,10 @@ export default function ProdutoForm() {
         estoque: form.controlarEstoque ? Math.max(0, parseInt(form.estoque, 10) || 0) : null,
         ativo: form.ativo,
         destaque: form.destaque,
+        // só manda as cores se a SQL 0008 já rodou (o produto tem o campo) ou se ela usou o recurso
+        ...('grupo_cor' in (original || {}) || form.grupo_cor || form.cor_nome || form.cor_hex
+          ? { grupo_cor: form.grupo_cor || null, cor_nome: form.cor_nome.trim(), cor_hex: form.cor_hex || '' }
+          : {}),
         ...(novo ? { ordem: 0 } : {}),
       })
 
@@ -224,6 +233,15 @@ export default function ProdutoForm() {
             <input ref={inputFoto} type="file" accept="image/*" multiple onChange={escolherFotos} className="hidden" />
             {pendentes.length > 0 && <p className="mt-2 text-xs text-ambar">As fotos novas sobem quando você tocar em Salvar.</p>}
           </section>
+
+          <CoresDoModelo
+            form={form}
+            setForm={setForm}
+            produtoId={novo ? null : Number(id)}
+            todos={todos}
+            setTodos={setTodos}
+            onErro={setErro}
+          />
 
           <section className="card space-y-4 p-5">
             <Campo rotulo="Nome do produto">
@@ -324,4 +342,176 @@ export default function ProdutoForm() {
       </div>
     </form>
   )
+}
+
+/**
+ * Cor deste produto + ligação com as outras cores do mesmo modelo (cada cor é um produto).
+ * Ligar e tirar do grupo gravam na hora nos outros produtos; neste, grava na hora se ele já existe.
+ */
+function CoresDoModelo({ form, setForm, produtoId, todos, setTodos, onErro }) {
+  const [buscando, setBuscando] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+
+  const membros = form.grupo_cor ? todos.filter((p) => p.grupo_cor === form.grupo_cor && p.id !== produtoId) : []
+  const termo = busca.trim().toLowerCase()
+  const candidatos = todos
+    .filter((p) => p.id !== produtoId && !(form.grupo_cor && p.grupo_cor === form.grupo_cor))
+    .filter((p) => !termo || p.nome.toLowerCase().includes(termo))
+    .slice(0, 8)
+
+  const gravarGrupo = async (ids, grupo) => {
+    await Promise.all(ids.map((pid) => api.salvar('produtos', { id: pid, grupo_cor: grupo })))
+    setTodos((l) => l.map((p) => (ids.includes(p.id) ? { ...p, grupo_cor: grupo } : p)))
+  }
+
+  const executar = async (fn) => {
+    setOcupado(true)
+    onErro('')
+    try {
+      await fn()
+    } catch (e) {
+      onErro(/grupo_cor|cor_nome|cor_hex|column/i.test(e.message) ? 'Rode a SQL 0008_cores_produto.sql no Supabase para usar as cores.' : e.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  const ligar = (alvo) => executar(async () => {
+    let grupo = form.grupo_cor
+    if (grupo) {
+      // traz o escolhido e, se ele já tinha um grupo, todas as cores dele
+      const ids = alvo.grupo_cor ? todos.filter((p) => p.grupo_cor === alvo.grupo_cor).map((p) => p.id) : [alvo.id]
+      await gravarGrupo(ids, grupo)
+    } else if (alvo.grupo_cor) {
+      grupo = alvo.grupo_cor
+    } else {
+      grupo = crypto.randomUUID()
+      await gravarGrupo([alvo.id], grupo)
+    }
+    if (produtoId) await gravarGrupo([produtoId], grupo)
+    setForm((f) => ({ ...f, grupo_cor: grupo }))
+    setBusca('')
+    setBuscando(false)
+  })
+
+  const tirar = (membro) => executar(() => gravarGrupo([membro.id], null))
+
+  const sair = () => executar(async () => {
+    if (produtoId) await gravarGrupo([produtoId], null)
+    setForm((f) => ({ ...f, grupo_cor: null }))
+  })
+
+  const escolherPronta = (c) => setForm((f) => ({ ...f, cor_nome: c.nome, cor_hex: c.hex }))
+  const mudarNome = (e) => {
+    const nome = e.target.value
+    const pronta = CORES_PRONTAS.find((c) => c.nome.toLowerCase() === nome.trim().toLowerCase())
+    setForm((f) => ({ ...f, cor_nome: nome, ...(pronta ? { cor_hex: pronta.hex } : {}) }))
+  }
+
+  return (
+    <section className="card space-y-4 p-5">
+      <div>
+        <h2 className="rotulo">Cores deste modelo</h2>
+        <p className="text-xs text-magenta/55">
+          Cada cor é um produto separado. Ligue aqui as outras cores do mesmo modelo e elas aparecem como
+          bolinhas no card e na página do produto, para a cliente trocar de cor.
+        </p>
+      </div>
+
+      <Campo rotulo="Cor deste produto" ajuda="Ex.: Prata, Dourado, Pedra vermelha. Sem cor escolhida, a bolinha mostra a foto do produto.">
+        <div className="flex items-center gap-2">
+          <Bolinha produto={{ cor_hex: form.cor_hex }} className="h-10 w-10" />
+          <input list="cores-prontas" value={form.cor_nome} onChange={mudarNome} className="campo" placeholder="Nome da cor" />
+          <datalist id="cores-prontas">{CORES_PRONTAS.map((c) => <option key={c.nome} value={c.nome} />)}</datalist>
+        </div>
+      </Campo>
+      <div className="flex flex-wrap gap-1">
+        {CORES_PRONTAS.map((c) => (
+          <button
+            key={c.nome}
+            type="button"
+            title={c.nome}
+            aria-label={c.nome}
+            onClick={() => escolherPronta(c)}
+            className="flex h-9 w-9 items-center justify-center rounded-full"
+          >
+            <span
+              className={`block h-6 w-6 rounded-full ring-1 ring-black/10 ${form.cor_hex.toLowerCase() === c.hex ? 'outline-2 outline-offset-2 outline-magenta' : ''}`}
+              style={fundoBolinha({ cor_hex: c.hex })}
+            />
+          </button>
+        ))}
+        <label className="flex h-9 items-center gap-1.5 rounded-full px-2 text-xs text-magenta/60" title="Outra cor">
+          <input
+            type="color"
+            value={/^#[0-9a-f]{6}$/i.test(form.cor_hex) ? form.cor_hex : '#cccccc'}
+            onChange={(e) => setForm((f) => ({ ...f, cor_hex: e.target.value }))}
+            className="h-7 w-7 cursor-pointer rounded-full border-0 bg-transparent p-0"
+          />
+          outra
+        </label>
+        {form.cor_hex && (
+          <button type="button" onClick={() => setForm((f) => ({ ...f, cor_hex: '' }))} className="h-9 px-2 text-xs text-magenta/60 underline">
+            usar a foto
+          </button>
+        )}
+      </div>
+
+      <div className="border-t border-blush pt-4">
+        <p className="rotulo">Outras cores</p>
+        {membros.length > 0 ? (
+          <ul className="space-y-1.5">
+            {membros.map((m) => (
+              <li key={m.id} className="flex items-center gap-2 rounded-xl bg-cream/60 px-2 py-1.5">
+                <Bolinha produto={m} />
+                <span className="min-w-0 flex-1 truncate text-sm text-magenta">
+                  {m.nome}{m.cor_nome ? <span className="text-magenta/50"> · {m.cor_nome}</span> : null}
+                  {!m.ativo && <span className="text-magenta/40"> (escondido)</span>}
+                </span>
+                <Link to={`/admin/produtos/${m.id}`} className="text-xs font-medium text-magenta/60 underline">editar</Link>
+                <button type="button" disabled={ocupado} onClick={() => tirar(m)} className="text-xs font-medium text-vermelho underline">tirar</button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-magenta/45">Nenhuma outra cor ligada.</p>
+        )}
+
+        {buscando ? (
+          <div className="mt-3 space-y-1.5">
+            <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} className="campo" placeholder="Buscar produto pelo nome" />
+            {candidatos.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                disabled={ocupado}
+                onClick={() => ligar(p)}
+                className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left hover:bg-ouro-palido"
+              >
+                {p.imagens?.[0]?.url
+                  ? <img src={p.imagens[0].url} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                  : <span className="h-9 w-9 shrink-0 rounded-lg bg-cream" />}
+                <span className="min-w-0 flex-1 truncate text-sm text-magenta">{p.nome}</span>
+                <span className="text-xs font-medium text-magenta/60">ligar</span>
+              </button>
+            ))}
+            {candidatos.length === 0 && <p className="text-xs text-magenta/45">Nenhum produto encontrado.</p>}
+            <button type="button" onClick={() => { setBuscando(false); setBusca('') }} className="text-xs text-magenta/60 underline">fechar</button>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => setBuscando(true)} className="btn-claro text-sm">+ Ligar outra cor</button>
+            {form.grupo_cor && membros.length > 0 && (
+              <button type="button" disabled={ocupado} onClick={sair} className="text-xs text-magenta/60 underline">tirar este produto do grupo</button>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function Bolinha({ produto, className = 'h-7 w-7' }) {
+  return <span className={`block shrink-0 rounded-full ring-1 ring-black/10 ${className}`} style={fundoBolinha(produto)} />
 }
