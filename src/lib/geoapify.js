@@ -68,3 +68,23 @@ export async function geocodificarGeoapify(end) {
   }
   return null
 }
+
+/** Distância de moto pelas ruas, em km (1 casa), ou null se não deu. */
+export async function rotaKm(origem, destino) {
+  if (!GEOAPIFY_KEY || origem?.lat == null || destino?.lat == null) return null
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), 6000)
+  try {
+    const q = new URLSearchParams({
+      waypoints: `${origem.lat},${origem.lng}|${destino.lat},${destino.lng}`,
+      mode: 'motorcycle', format: 'json', apiKey: GEOAPIFY_KEY,
+    })
+    const r = await fetch(`https://api.geoapify.com/v1/routing?${q}`, { signal: ctrl.signal })
+    const m = r.ok ? (await r.json()).results?.[0]?.distance : null
+    return Number.isFinite(m) ? Math.round(m / 100) / 10 : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(t)
+  }
+}

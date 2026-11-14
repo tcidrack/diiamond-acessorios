@@ -1,6 +1,7 @@
 import { precoFinal } from './precos.js'
 import { calcularFrete } from './entrega.js'
 import { buscarCep } from './cep.js'
+import { rotaKm } from './geoapify.js'
 import { encontrarRespostaPronta } from './respostas-prontas.js'
 
 /**
@@ -219,7 +220,9 @@ export const apiDemo = {
     if (String(cep || '').replace(/\D/g, '').length !== 8) return { ok: false, erro: 'Informe um CEP válido.' }
     const end = await buscarCep(cep)
     if (!end) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
-    return { ...end, ...calcularFrete(carregar().config_loja, end.lat, end.lng) }
+    const cfg = carregar().config_loja
+    const kmRota = end.lat != null && cfg.origem_lat != null ? await rotaKm({ lat: cfg.origem_lat, lng: cfg.origem_lng }, end) : null
+    return { ...end, km_rota: kmRota, ...calcularFrete(cfg, end.lat, end.lng, kmRota) }
   },
 
   async criarPedido(p) {
@@ -268,7 +271,7 @@ export const apiDemo = {
         if (cep.length !== 8) throw new Error('Informe um CEP válido.')
         const lat = p.lat == null || p.lat === '' ? null : Number(p.lat)
         const lng = p.lng == null || p.lng === '' ? null : Number(p.lng)
-        frete = calcularFrete(cfg, lat, lng)
+        frete = calcularFrete(cfg, lat, lng, p.km_rota ?? null)
         if (!frete.ok) throw new Error(frete.erro)
         taxa = frete.taxa
         bairroNome = String(p.bairro || '').trim()

@@ -35,13 +35,24 @@ export function haversine(lat1, lng1, lat2, lng2) {
   return 2 * 6371 * Math.asin(Math.sqrt(a))
 }
 
-export function calcularFrete(cfg, lat, lng) {
+/**
+ * Km pelas ruas só vale se for plausível: entre a linha reta e 2,5× ela (+0,5 km de folga).
+ * Mesma regra do banco (0011_entrega_rota.sql).
+ */
+export function kmRotaValido(reta, kmRota) {
+  const k = Number(kmRota)
+  return kmRota != null && kmRota !== '' && Number.isFinite(k) && k >= reta * 0.95 && k <= reta * 2.5 + 0.5
+}
+
+export function calcularFrete(cfg, lat, lng, kmRota = null) {
   if (cfg?.origem_lat == null || cfg?.origem_lng == null) return { ok: false, erro: 'A loja ainda não configurou o ponto de saída das entregas.' }
   // sem a localização do CEP: frete a combinar (igual ao banco)
   if (lat == null || lng == null) return { ok: true, km: null, taxa: 0, a_combinar: true, sem_local: true }
   const r = regrasEntrega(cfg)
-  const km = Math.round(haversine(Number(cfg.origem_lat), Number(cfg.origem_lng), lat, lng) * r.entrega_fator_rota * 10) / 10
-  return { ok: true, ...taxaPorKm(km, cfg) }
+  const reta = haversine(Number(cfg.origem_lat), Number(cfg.origem_lng), lat, lng)
+  const pelaRua = kmRotaValido(reta, kmRota)
+  const km = Math.round((pelaRua ? Number(kmRota) : reta * r.entrega_fator_rota) * 10) / 10
+  return { ok: true, ...taxaPorKm(km, cfg), pela_rua: pelaRua }
 }
 
 /** Linhas da tabela de exemplo do painel (1 km até o limite). */

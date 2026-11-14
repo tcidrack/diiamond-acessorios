@@ -149,7 +149,7 @@ export default function Checkout() {
         troco_para: troco,
         cupom: cupom?.codigo || '',
         // localização do CEP (o banco recalcula a taxa com ela)
-        ...(modoDistancia && form.tipo_entrega === 'entrega' ? { lat: cotacao?.lat ?? null, lng: cotacao?.lng ?? null } : {}),
+        ...(modoDistancia && form.tipo_entrega === 'entrega' ? { lat: cotacao?.lat ?? null, lng: cotacao?.lng ?? null, km_rota: cotacao?.km_rota ?? null } : {}),
         itens: itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
       })
       const { forma_pagamento, troco_para, observacao, cepDoBairro, ...dadosCliente } = form

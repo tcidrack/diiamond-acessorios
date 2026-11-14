@@ -202,7 +202,7 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
           <Campo rotulo="Valor por km (R$)"><input inputMode="decimal" value={cfg.entrega_valor_km} onChange={set('entrega_valor_km')} className="campo tnum" /></Campo>
           <Campo rotulo="Entrega até (km)" ajuda="Acima disso: frete a combinar."><input inputMode="decimal" value={cfg.entrega_max_km} onChange={set('entrega_max_km')} className="campo tnum" /></Campo>
         </div>
-        <Campo rotulo="Fator de rota" ajuda="A distância é medida em linha reta e multiplicada por este número para chegar perto do caminho pelas ruas. 1,3 é o normal; aumente se estiver cobrando pouco.">
+        <Campo rotulo="Fator de rota" ajuda="A distância é calculada pelo caminho de moto. Só se o mapa não responder, usa a linha reta multiplicada por este número (1,3 é o normal).">
           <input inputMode="decimal" value={cfg.entrega_fator_rota} onChange={set('entrega_fator_rota')} className="campo tnum w-28" />
         </Campo>
         <p className="rounded-2xl bg-cream px-4 py-3 text-xs text-magenta/70">
@@ -232,7 +232,7 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
                       <br />
                       {sim.km == null
                         ? <>Localização do CEP não encontrada → <strong>frete a combinar</strong></>
-                        : <><strong>{formatKm(sim.km)}</strong> → {sim.a_combinar ? <strong>frete a combinar</strong> : <strong>{formatBRL(sim.taxa)}</strong>}</>}
+                        : <><strong>{formatKm(sim.km)}</strong>{sim.pela_rua ? " pelas ruas" : " (estimado)"} → {sim.a_combinar ? <strong>frete a combinar</strong> : <strong>{formatBRL(sim.taxa)}</strong>}</>}
                     </>}
             </p>
           )}

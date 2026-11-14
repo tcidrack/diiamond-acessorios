@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js'
 import { buscarCep } from './cep.js'
+import { rotaKm } from './geoapify.js'
 
 /**
  * Acesso a dados de verdade (Supabase). A interface é a mesma de api-demo.js:
@@ -72,8 +73,17 @@ export const apiSupabase = {
   async cotarEntrega(cep) {
     const end = await buscarCep(cep)
     if (!end) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
-    const frete = ok(await supabase.rpc('calcular_entrega', { p_cep: end.cep, p_lat: end.lat, p_lng: end.lng }))
-    return { ...end, ...frete }
+    // distância de moto pelas ruas (o banco só aceita se for plausível)
+    let kmRota = null
+    if (end.lat != null) {
+      const cfg = await this.getConfig().catch(() => null)
+      if (cfg?.origem_lat != null) kmRota = await rotaKm({ lat: cfg.origem_lat, lng: cfg.origem_lng }, end)
+    }
+    let r = await supabase.rpc('calcular_entrega', { p_cep: end.cep, p_lat: end.lat, p_lng: end.lng, p_km_rota: kmRota })
+    // banco ainda sem a SQL 0011: calcula do jeito antigo (linha reta × fator)
+    if (r.error) r = await supabase.rpc('calcular_entrega', { p_cep: end.cep, p_lat: end.lat, p_lng: end.lng })
+    const frete = ok(r)
+    return { ...end, km_rota: kmRota, ...frete }
   },
 
   async criarPedido(payload) {
