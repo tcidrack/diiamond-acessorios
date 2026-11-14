@@ -79,6 +79,16 @@ export const apiSupabase = {
     return ok(await supabase.rpc('informar_pix_enviado', { p_codigo: codigo, p_token: token }))
   },
 
+  /** Cartão online: link de pagamento da InfinitePay ({ url } ou { pago: true } se já pago). */
+  async gerarLinkCartao(codigo, token) {
+    return this.funcao('infinitepay-link', { acao: 'criar', codigo, token })
+  },
+
+  /** Cliente voltou do checkout da InfinitePay: confere o pagamento com os dados do redirect. */
+  async verificarPagamentoCartao(codigo, token, { slug, transaction_nsu, receipt_url }) {
+    return this.funcao('infinitepay-link', { acao: 'verificar', codigo, token, slug, transaction_nsu, receipt_url })
+  },
+
   // ---------------- autenticação ----------------
   async login(email, senha) {
     ok(await supabase.auth.signInWithPassword({ email, password: senha }))

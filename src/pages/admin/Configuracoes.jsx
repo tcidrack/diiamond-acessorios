@@ -28,6 +28,7 @@ export default function Configuracoes() {
         ...campos,
         whatsapp: String(campos.whatsapp || '').replace(/\D/g, ''),
         instagram: String(campos.instagram || '').replace(/^@/, '').trim(),
+        infinitepay_handle: String(campos.infinitepay_handle || '').replace(/^\$/, '').trim(),
         pedido_minimo: parseBRL(campos.pedido_minimo) ?? 0,
       })
       setCfg({ ...salvo, pedido_minimo: numeroParaCampo(salvo.pedido_minimo) })
@@ -75,6 +76,13 @@ export default function Configuracoes() {
               <Campo rotulo="Chave Pix" ajuda="CPF, CNPJ, e-mail, celular ou chave aleatória."><input value={cfg.chave_pix || ''} onChange={set('chave_pix')} className="campo" /></Campo>
               <Campo rotulo="Nome do recebedor" ajuda="Como aparece no banco (sem acentos tudo bem)."><input value={cfg.pix_nome || ''} onChange={set('pix_nome')} className="campo" /></Campo>
               <Campo rotulo="Cidade do recebedor"><input value={cfg.pix_cidade || ''} onChange={set('pix_cidade')} className="campo" /></Campo>
+            </section>
+
+            <section className="card space-y-4 p-5">
+              <h2 className="font-display text-lg font-semibold text-magenta">Cartão online (InfinitePay)</h2>
+              <Campo rotulo="InfiniteTag" ajuda="Sua tag da InfinitePay, sem o $. Com ela preenchida, o cliente pode pagar no cartão pelo site (crédito em até 12x). Vazio = opção escondida.">
+                <input value={cfg.infinitepay_handle || ''} onChange={set('infinitepay_handle')} className="campo" placeholder="diiamondacessorios" />
+              </Campo>
             </section>
           </div>
         </div>

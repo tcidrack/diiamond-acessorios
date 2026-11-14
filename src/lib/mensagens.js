@@ -22,7 +22,7 @@ export function mensagemPedidoWhatsApp(pedido, itens, link) {
   }
   let pagamento = FORMAS_PAGAMENTO[pedido.forma_pagamento]?.rotulo || pedido.forma_pagamento
   if (pedido.forma_pagamento === 'dinheiro' && pedido.troco_para) pagamento += ` (troco para ${formatBRL(pedido.troco_para)})`
-  if (pedido.forma_pagamento === 'cartao') pagamento += ' na maquininha'
+  if (pedido.forma_pagamento === 'cartao_online') pagamento += pedido.pago_em ? ' — pago ✅' : ' (vou pagar pelo link)'
   if (pedido.forma_pagamento === 'pix') pagamento += pedido.comprovante_enviado_em ? ' — já paguei ✅' : ' (vou pagar pelo QR Code)'
   linhas.push(`Pagamento: ${pagamento}`)
   if (pedido.observacao) linhas.push(`Obs.: ${pedido.observacao}`)

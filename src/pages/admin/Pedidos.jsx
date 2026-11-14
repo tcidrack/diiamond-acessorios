@@ -7,7 +7,7 @@ import { api } from '../../lib/api.js'
 const FILTROS = {
   ativos: { rotulo: 'Em aberto', status: ['novo', 'aguardando_pagamento', 'pagamento_enviado', 'confirmado', 'separando', 'pronto', 'saiu_entrega'] },
   conferir: { rotulo: 'Conferir Pix', status: ['pagamento_enviado'] },
-  aguardando: { rotulo: 'Aguardando Pix', status: ['aguardando_pagamento'] },
+  aguardando: { rotulo: 'Aguardando pagamento', status: ['aguardando_pagamento'] },
   separar: { rotulo: 'Para separar', status: ['novo', 'confirmado', 'separando'] },
   concluidos: { rotulo: 'Concluídos', status: ['concluido'] },
   cancelados: { rotulo: 'Cancelados', status: ['cancelado'] },

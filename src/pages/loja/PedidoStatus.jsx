@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PixPagamento from '../../components/PixPagamento.jsx'
 import ConfirmarPix from '../../components/ConfirmarPix.jsx'
 import { IconeCheck, IconeDiamante, IconeWhatsApp } from '../../components/Icones.jsx'
@@ -26,6 +26,8 @@ export default function PedidoStatus() {
   const { config } = useLoja()
   const [dados, setDados] = useState(null)
   const [carregando, setCarregando] = useState(true)
+  const navegar = useNavigate()
+  const verificou = useRef(false)
 
   const carregar = useCallback(async () => {
     if (!token) return setCarregando(false)
@@ -41,6 +43,19 @@ export default function PedidoStatus() {
     const t = setInterval(carregar, 20000)
     return () => clearInterval(t)
   }, [carregar])
+
+  // voltou do checkout da InfinitePay: confere o pagamento (reforço caso o webhook demore) e limpa a URL
+  useEffect(() => {
+    const transaction_nsu = params.get('transaction_nsu')
+    if (!token || !transaction_nsu || verificou.current) return
+    verificou.current = true
+    api.verificarPagamentoCartao(codigo, token, { slug: params.get('slug'), transaction_nsu, receipt_url: params.get('receipt_url') })
+      .catch(() => { /* o webhook ainda confirma */ })
+      .finally(() => {
+        carregar()
+        navegar(`/pedido/${codigo}?t=${token}`, { replace: true })
+      })
+  }, [codigo, token, params, carregar, navegar])
 
   if (carregando) return <div className="mx-auto mt-8 h-96 max-w-2xl animate-pulse rounded-3xl bg-white/60" />
 
@@ -59,13 +74,16 @@ export default function PedidoStatus() {
   const link = window.location.href.replace(/&novo=1/, '')
   const cancelado = pedido.status === 'cancelado'
   const etapas = pedido.tipo_entrega === 'entrega' ? ETAPAS_ENTREGA : ETAPAS_RETIRADA
-  // dinheiro/cartão não passam por "pago" antes de separar
-  const etapasVisiveis = pedido.forma_pagamento === 'pix' ? etapas : etapas.filter((e) => e !== 'confirmado')
+  // dinheiro/cartão na maquininha não passam por "pago" antes de separar
+  const pagaAntes = ['pix', 'cartao_online'].includes(pedido.forma_pagamento)
+  const etapasVisiveis = pagaAntes ? etapas : etapas.filter((e) => e !== 'confirmado')
   const indice = etapasVisiveis.indexOf(etapaAtual(pedido.status))
   const precisaPix = pedido.forma_pagamento === 'pix' && ['aguardando_pagamento', 'pagamento_enviado', 'novo'].includes(pedido.status)
   const pixInformado = !!pedido.comprovante_enviado_em
+  const precisaCartao = pedido.forma_pagamento === 'cartao_online' && !pedido.pago_em && !cancelado
   const textoWhatsApp = pedido.forma_pagamento === 'pix' && precisaPix
     ? (pixInformado ? 'Último passo: avise a loja pelo WhatsApp. Se quiser, encaminhe o comprovante por lá.' : 'Fale com a loja pelo WhatsApp')
+    : precisaCartao ? 'Dúvidas sobre o pagamento? Fale com a loja'
     : (novo ? 'Último passo: avise a loja pelo WhatsApp para agilizar' : 'Fale com a loja sobre este pedido')
 
   return (
@@ -113,6 +131,8 @@ export default function PedidoStatus() {
         </>
       )}
 
+      {precisaCartao && <PagarCartao codigo={codigo} token={token} valor={pedido.total} voltando={!!params.get('transaction_nsu')} />}
+
       {config?.whatsapp && !cancelado && (
         <div className="card p-5 text-center">
           <p className="text-sm text-magenta/70">{textoWhatsApp}</p>
@@ -152,6 +172,44 @@ export default function PedidoStatus() {
 
       <p className="text-center text-xs text-magenta/45">Guarde este link para acompanhar seu pedido. Ele atualiza sozinho.</p>
       <div className="text-center"><Link to="/" className="btn-claro">Voltar para a loja</Link></div>
+    </div>
+  )
+}
+
+function PagarCartao({ codigo, token, valor, voltando }) {
+  const [abrindo, setAbrindo] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const pagar = async () => {
+    setErro('')
+    setAbrindo(true)
+    try {
+      const r = await api.gerarLinkCartao(codigo, token)
+      if (r?.url) return window.location.assign(r.url)
+      window.location.reload() // já estava pago
+    } catch (e) {
+      setErro(e.message)
+      setAbrindo(false)
+    }
+  }
+
+  return (
+    <div className="card space-y-3 p-5 text-center">
+      <h2 className="font-display text-lg font-semibold text-magenta">Pagar com cartão</h2>
+      {voltando ? (
+        <p className="text-sm text-magenta/70">Conferindo seu pagamento…</p>
+      ) : (
+        <>
+          <p className="text-sm text-magenta/70">
+            Total de <strong>{formatBRL(valor)}</strong>, no crédito em até 12x. O pagamento é feito na página segura da InfinitePay.
+          </p>
+          <button type="button" onClick={pagar} disabled={abrindo} className="btn-primario w-full">
+            {abrindo ? 'Abrindo pagamento…' : 'Pagar com cartão'}
+          </button>
+          <p className="text-xs text-magenta/45">Já pagou? A confirmação aparece aqui sozinha em instantes.</p>
+        </>
+      )}
+      {erro && <p className="rounded-xl bg-vermelho-bg/60 px-3 py-2 text-sm text-vermelho" role="alert">{erro}</p>}
     </div>
   )
 }

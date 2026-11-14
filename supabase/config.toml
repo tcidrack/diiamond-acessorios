@@ -3,3 +3,7 @@ project_id = "diamond-loja"
 # A Meta chama o webhook sem token do Supabase: a segurança é a assinatura X-Hub-Signature-256.
 [functions.instagram-webhook]
 verify_jwt = false
+
+# A InfinitePay chama o webhook sem token do Supabase: a segurança é conferir o pagamento no payment_check.
+[functions.infinitepay-webhook]
+verify_jwt = false

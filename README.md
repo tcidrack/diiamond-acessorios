@@ -1,6 +1,6 @@
 # Diiamond Acessórios — Loja online
 
-Loja virtual da @diiamondacessorios. O cliente pesquisa, monta o carrinho, escolhe entrega (taxa por bairro) ou retirada e paga com Pix (confirma no site que pagou), dinheiro ou cartão na maquininha. A dona recebe o pedido no painel com alerta sonoro e pelo WhatsApp. Um assistente de IA responde o Direct do Instagram no estilo da dona.
+Loja virtual da @diiamondacessorios. O cliente pesquisa, monta o carrinho, escolhe entrega (taxa por bairro) ou retirada e paga com Pix (confirma no site que pagou), cartão online pela InfinitePay (crédito em até 12x), dinheiro ou cartão na maquininha. A dona recebe o pedido no painel com alerta sonoro e pelo WhatsApp. Um assistente de IA responde o Direct do Instagram no estilo da dona.
 
 - **Loja:** `/` · produto `/produto/:slug` · `/checkout` · acompanhamento `/pedido/:codigo?t=…`
 - **Painel:** `/admin` (pedidos, produtos, categorias, entrega, cupons, configurações, Direct, Assistente IA)
@@ -29,7 +29,7 @@ Abra http://localhost:5173 (loja) e http://localhost:5173/admin (painel: qualque
    select id from auth.users where email in ('EMAIL_DA_LOJA', 'EMAIL_DA_DONA')
    on conflict do nothing;
    ```
-   Rode também `0002_ia_modo_teste.sql`, `0003_gemini_respostas_prontas.sql` e `0004_pix_informado.sql`.
+   Rode também `0002_ia_modo_teste.sql`, `0003_gemini_respostas_prontas.sql`, `0004_pix_informado.sql` e `0005_cartao_online.sql`.
 6. **Project Settings → API**: copie a *Project URL* e a chave *anon public*.
 
 ### 2. Site (Vercel)
@@ -47,6 +47,18 @@ Entre em `/admin` e, em **Configurações**, preencha WhatsApp, chave Pix (nome 
 Cada login pode trocar a própria senha em **Configurações → Senha de acesso**.
 
 Dica: no celular, abra o painel no navegador e use "Adicionar à tela inicial". Toque em **🔔 Ativar alertas** para ouvir o som a cada pedido novo (o painel precisa ficar aberto).
+
+### 4. Cartão online (InfinitePay)
+O cliente pode pagar no crédito (até 12x) pelo site, no Checkout Integrado da InfinitePay. O Pix continua direto na sua conta, sem taxa.
+1. Publique as functions:
+   ```
+   supabase functions deploy infinitepay-link
+   supabase functions deploy infinitepay-webhook --no-verify-jwt
+   ```
+2. No painel, em **Configurações → Cartão online**, preencha sua **InfiniteTag** (sem o `$`) e confira o **endereço do site** (é para onde o cliente volta depois de pagar).
+3. Faça uma compra de valor baixo para testar (a InfinitePay não tem ambiente de teste) e estorne pelo app.
+
+O pedido fica "Aguardando pagamento" e muda sozinho para "Pagamento confirmado" quando a InfinitePay aprova. O site sempre confere o pagamento direto na API da InfinitePay antes de confirmar.
 
 ### 4. Assistente IA no Direct
 Guia completo em [`docs/instagram-setup.md`](docs/instagram-setup.md). As telas **Direct** e **Assistente IA** ficam escondidas no painel até você adicionar `VITE_IA_ATIVA=true` nas variáveis da Vercel e publicar de novo.

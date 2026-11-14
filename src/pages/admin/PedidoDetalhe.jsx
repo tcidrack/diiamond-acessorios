@@ -124,6 +124,28 @@ export default function PedidoDetalhe() {
             {pedido.observacao && <p className="rounded-xl bg-ouro-palido px-3 py-2"><strong>Obs.:</strong> {pedido.observacao}</p>}
           </section>
 
+          {pedido.forma_pagamento === 'cartao_online' && (
+            <section className="card p-5 text-sm print:hidden">
+              <h2 className="rotulo">Cartão online (InfinitePay)</h2>
+              {pedido.pago_em ? (
+                <>
+                  <p>
+                    Pago em <strong>{formatData(pedido.pago_em)}</strong>
+                    {pedido.pagamento_parcelas > 1 ? <> · {pedido.pagamento_parcelas}x</> : ' · à vista'}
+                    {pedido.pagamento_nsu ? <span className="text-magenta/50"> · NSU {pedido.pagamento_nsu}</span> : null}
+                  </p>
+                  {pedido.pagamento_recibo && (
+                    <a href={pedido.pagamento_recibo} target="_blank" rel="noreferrer" className="btn-claro mt-3">Ver comprovante</a>
+                  )}
+                </>
+              ) : (
+                <p className="text-magenta/50">
+                  {pedido.pagamento_link ? 'O cliente abriu o link de pagamento, mas ainda não pagou.' : 'O cliente ainda não abriu o link de pagamento.'} A confirmação chega sozinha quando a InfinitePay aprovar.
+                </p>
+              )}
+            </section>
+          )}
+
           {pedido.forma_pagamento === 'pix' && (
             <section className="card p-5 print:hidden">
               <h2 className="rotulo">Pagamento Pix</h2>

@@ -52,7 +52,7 @@ function seed() {
       instagram: 'diiamondacessorios', chave_pix: 'loja@exemplo.com', pix_nome: 'Diiamond Acessorios',
       pix_cidade: 'Brasilia', endereco_retirada: 'Combinar pelo WhatsApp', horario: 'Seg a sáb, 9h às 19h',
       banner_ativo: true, banner_texto: 'Frete grátis na retirada · Use o cupom BEMVINDA e ganhe 10% OFF',
-      aberta: true, pedido_minimo: 0, url_loja: '',
+      aberta: true, pedido_minimo: 0, url_loja: '', infinitepay_handle: 'demo',
     },
     categorias,
     produtos,
@@ -203,7 +203,7 @@ export const apiDemo = {
     if (nome.length < 2) throw new Error('Informe seu nome.')
     if (tel.length < 10 || tel.length > 13) throw new Error('Informe um WhatsApp válido com DDD.')
     if (!['entrega', 'retirada'].includes(p.tipo_entrega)) throw new Error('Escolha entrega ou retirada.')
-    if (!['pix', 'dinheiro', 'cartao'].includes(p.forma_pagamento)) throw new Error('Escolha a forma de pagamento.')
+    if (!['pix', 'dinheiro', 'cartao', 'cartao_online'].includes(p.forma_pagamento)) throw new Error('Escolha a forma de pagamento.')
     if (!p.itens?.length) throw new Error('Seu carrinho está vazio.')
 
     let subtotal = 0
@@ -258,7 +258,7 @@ export const apiDemo = {
       endereco: p.tipo_entrega === 'entrega' ? p.endereco : null, complemento: p.complemento || '',
       referencia: p.referencia || '', observacao: p.observacao || '', forma_pagamento: p.forma_pagamento,
       troco_para: troco, subtotal, desconto, taxa_entrega: taxa, total, cupom_codigo: cupom,
-      status: p.forma_pagamento === 'pix' ? 'aguardando_pagamento' : 'novo',
+      status: ['pix', 'cartao_online'].includes(p.forma_pagamento) ? 'aguardando_pagamento' : 'novo',
       comprovante_path: null, comprovante_enviado_em: null,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }
@@ -274,7 +274,7 @@ export const apiDemo = {
     const db = carregar()
     const pd = db.pedidos.find((x) => x.codigo === codigo && x.token === token)
     if (!pd) return null
-    const { id, token: _t, comprovante_path, ...resto } = pd
+    const { id, token: _t, comprovante_path, pagamento_nsu, ...resto } = pd
     return copia({
       pedido: { ...resto, tem_comprovante: !!comprovante_path },
       itens: db.pedido_itens.filter((i) => i.pedido_id === id).map(({ id: _i, pedido_id: _p, ...i }) => i),
@@ -292,6 +292,30 @@ export const apiDemo = {
     gravar(db)
     emitir('pedidos', 'UPDATE', pd, antigo)
     return true
+  },
+
+  /** Demonstração: em vez da InfinitePay, o "link" volta direto para o pedido como se tivesse pago. */
+  async gerarLinkCartao(codigo, token) {
+    await espera(300)
+    const db = carregar()
+    const pd = db.pedidos.find((x) => x.codigo === codigo && x.token === token && x.forma_pagamento === 'cartao_online')
+    if (!pd) throw new Error('Pedido não encontrado.')
+    if (pd.pago_em) return { pago: true }
+    return { url: `${window.location.origin}/pedido/${codigo}?t=${token}&order_nsu=${codigo}&slug=demo&transaction_nsu=demo&capture_method=credit_card` }
+  },
+
+  async verificarPagamentoCartao(codigo, token, retorno) {
+    await espera(300)
+    const db = carregar()
+    const pd = db.pedidos.find((x) => x.codigo === codigo && x.token === token && x.forma_pagamento === 'cartao_online')
+    if (!pd || pd.status === 'cancelado' || !retorno?.transaction_nsu) return { pago: !!pd?.pago_em }
+    if (pd.pago_em) return { pago: true }
+    const antigo = { ...pd }
+    Object.assign(pd, { pago_em: new Date().toISOString(), pagamento_nsu: retorno.transaction_nsu, pagamento_slug: retorno.slug, pagamento_parcelas: 1 })
+    if (['novo', 'aguardando_pagamento', 'pagamento_enviado'].includes(pd.status)) pd.status = 'confirmado'
+    gravar(db)
+    emitir('pedidos', 'UPDATE', pd, antigo)
+    return { pago: true }
   },
 
   // ---------------- autenticação ----------------

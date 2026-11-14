@@ -71,6 +71,7 @@ export default function Checkout() {
   const taxa = form.tipo_entrega === 'entrega' ? Number(bairro?.taxa || 0) : 0
   const desconto = cupom?.desconto || 0
   const total = Math.max(0, subtotal - desconto) + taxa
+  const formasPagamento = Object.entries(FORMAS_PAGAMENTO).filter(([chave]) => chave !== 'cartao_online' || config?.infinitepay_handle)
 
   const aplicarCupom = async () => {
     setCupomErro('')
@@ -103,6 +104,13 @@ export default function Checkout() {
       try { localStorage.setItem(CHAVE_CLIENTE, JSON.stringify(dadosCliente)) } catch { /* modo privado */ }
       if (!compraDireta) carrinho.limpar()
       recarregar()
+      if (form.forma_pagamento === 'cartao_online') {
+        // vai direto para o checkout da InfinitePay; se falhar, a página do pedido tem o botão de pagar
+        try {
+          const link = await api.gerarLinkCartao(r.codigo, r.token)
+          if (link?.url) return window.location.assign(link.url)
+        } catch { /* segue para a página do pedido */ }
+      }
       navegar(`/pedido/${r.codigo}?t=${r.token}&novo=1`, { replace: true })
     } catch (err) {
       setErro(err.message)
@@ -187,8 +195,8 @@ export default function Checkout() {
           </Secao>
 
           <Secao numero="3" titulo="Pagamento">
-            <div className="grid gap-2 sm:grid-cols-3">
-              {Object.entries(FORMAS_PAGAMENTO).map(([chave, f]) => (
+            <div className={`grid gap-2 ${formasPagamento.length > 3 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+              {formasPagamento.map(([chave, f]) => (
                 <Opcao key={chave} ativo={form.forma_pagamento === chave} onClick={() => setForm((x) => ({ ...x, forma_pagamento: chave }))} titulo={f.rotulo} detalhe={f.detalhe} />
               ))}
             </div>
@@ -200,6 +208,9 @@ export default function Checkout() {
             )}
             {form.forma_pagamento === 'pix' && (
               <p className="mt-3 text-xs text-magenta/55">Na próxima tela aparece o QR Code com o valor certinho. Depois de pagar, é só tocar em “Já fiz o Pix”.</p>
+            )}
+            {form.forma_pagamento === 'cartao_online' && (
+              <p className="mt-3 text-xs text-magenta/55">Ao confirmar, você vai para a página segura da InfinitePay para pagar com cartão. Depois volta sozinha para cá.</p>
             )}
           </Secao>
 
@@ -250,7 +261,7 @@ export default function Checkout() {
             {erro && <p className="rounded-xl bg-vermelho-bg/60 px-3 py-2 text-sm text-vermelho" role="alert">{erro}</p>}
 
             <button type="submit" disabled={enviando || config?.aberta === false} className="btn-primario w-full text-base">
-              {enviando ? 'Enviando pedido…' : 'Confirmar pedido'}
+              {enviando ? 'Enviando pedido…' : form.forma_pagamento === 'cartao_online' ? 'Confirmar e pagar' : 'Confirmar pedido'}
             </button>
             <p className="text-center text-xs text-magenta/45">Os valores são conferidos pela loja ao confirmar.</p>
           </div>
