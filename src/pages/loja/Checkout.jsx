@@ -4,7 +4,7 @@ import { IconeVoltar } from '../../components/Icones.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, parseBRL } from '../../lib/format.js'
 import { FORMAS_PAGAMENTO, esgotado } from '../../lib/precos.js'
-import { mascaraCep, soDigitos } from '../../lib/entrega.js'
+import { ganhaEntregaGratis, linhasHorarioEntrega, mascaraCep, minimoEntregaGratis, soDigitos } from '../../lib/entrega.js'
 import { itemDoProduto, useCarrinho } from '../../hooks/useCarrinho.jsx'
 import { useLoja } from '../../hooks/useLoja.jsx'
 
@@ -115,10 +115,16 @@ export default function Checkout() {
   const bairro = listaBairros.find((b) => String(b.id) === String(form.bairro_id))
   const freteOk = !!cotacao?.ok
   const freteCombinar = modoDistancia && freteOk && cotacao.a_combinar
-  const taxa = form.tipo_entrega !== 'entrega' ? 0
+  const desconto = cupom?.desconto || 0
+  const taxaNormal = form.tipo_entrega !== 'entrega' ? 0
     : modoDistancia ? (freteOk ? Number(cotacao.taxa) || 0 : 0)
       : Number(bairro?.taxa || 0)
-  const desconto = cupom?.desconto || 0
+  // entrega grátis a partir de um valor (o banco aplica a mesma regra)
+  const minGratis = minimoEntregaGratis(config)
+  const gratisPorValor = form.tipo_entrega === 'entrega' && !freteCombinar && ganhaEntregaGratis(Math.max(0, subtotal - desconto), config)
+  const taxa = gratisPorValor ? 0 : taxaNormal
+  const faltaGratis = minGratis > 0 && !gratisPorValor && !freteCombinar && taxaNormal > 0 ? minGratis - Math.max(0, subtotal - desconto) : 0
+  const horarioEntrega = linhasHorarioEntrega(config)
   const total = Math.max(0, subtotal - desconto) + taxa
   const formasPagamento = Object.entries(FORMAS_PAGAMENTO).filter(([chave]) => chave !== 'cartao_online' || config?.infinitepay_handle)
 
@@ -243,7 +249,9 @@ export default function Checkout() {
                             : freteCombinar ? (cotacao.km == null
                               ? <>Não conseguimos calcular a distância agora. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido e não entra no total abaixo.</>
                               : <>Seu endereço fica fora da área de entrega padrão. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido (entrega por aplicativo) e não entra no total abaixo.</>)
-                              : <>Entrega: <strong>{taxa > 0 ? formatBRL(taxa) : 'grátis'}</strong></>}
+                              : gratisPorValor && taxaNormal > 0
+                                ? <>Entrega: <s className="opacity-60">{formatBRL(taxaNormal)}</s> <strong>grátis</strong> 🎉</>
+                                : <>Entrega: <strong>{taxa > 0 ? formatBRL(taxa) : 'grátis'}</strong></>}
                       </div>
                     )}
                   </>
@@ -271,6 +279,17 @@ export default function Checkout() {
                   <span className="rotulo">Ponto de referência</span>
                   <input value={form.referencia} onChange={campo('referencia')} className="campo" placeholder="Perto de…" />
                 </label>
+                {faltaGratis > 0 && (
+                  <p className="sm:col-span-2 rounded-2xl bg-blush/40 px-4 py-2.5 text-sm text-magenta">
+                    Faltam <strong>{formatBRL(faltaGratis)}</strong> para a entrega sair <strong>grátis</strong> 💖
+                  </p>
+                )}
+                {horarioEntrega.length > 0 && (
+                  <div className="sm:col-span-2 rounded-2xl bg-cream px-4 py-3 text-sm text-magenta/80">
+                    <p className="font-semibold text-magenta">🕒 Horário de entrega</p>
+                    {horarioEntrega.map((l) => <p key={l}>{l}</p>)}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm text-magenta/70">

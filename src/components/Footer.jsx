@@ -1,6 +1,7 @@
 import { IconeInstagram, IconeWhatsApp } from './Icones.jsx'
 import { linkWhatsApp } from '../lib/format.js'
 import { useLoja } from '../hooks/useLoja.jsx'
+import { linhasHorarioEntrega } from '../lib/entrega.js'
 
 export default function Footer() {
   const { config } = useLoja()
@@ -14,6 +15,9 @@ export default function Footer() {
           <p className="font-display text-lg text-magenta">{config.nome}</p>
           {config.horario && <p>{config.horario}</p>}
           {config.endereco_retirada && <p>Retirada: {config.endereco_retirada}</p>}
+          {linhasHorarioEntrega(config).length > 0 && (
+            <p className="mt-1">Entregas: {linhasHorarioEntrega(config).join(' · ')}</p>
+          )}
         </div>
         <div className="flex gap-2">
           {config.whatsapp && (

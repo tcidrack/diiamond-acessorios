@@ -55,6 +55,18 @@ export function calcularFrete(cfg, lat, lng, kmRota = null) {
   return { ok: true, ...taxaPorKm(km, cfg), pela_rua: pelaRua }
 }
 
+/** Valor mínimo (subtotal com desconto) para entrega grátis, ou 0 se desligado. */
+export const minimoEntregaGratis = (cfg) => Math.max(0, Number(cfg?.entrega_gratis_acima) || 0)
+
+/** Entrega grátis a partir de um valor (mesma regra do banco, 0012). `base` = subtotal - desconto. */
+export function ganhaEntregaGratis(base, cfg) {
+  const min = minimoEntregaGratis(cfg)
+  return min > 0 && base >= min
+}
+
+/** Linhas do horário de entrega (texto livre, uma por linha). */
+export const linhasHorarioEntrega = (cfg) => String(cfg?.horario_entrega || '').split('\n').map((l) => l.trim()).filter(Boolean)
+
 /** Linhas da tabela de exemplo do painel (1 km até o limite). */
 export function tabelaExemplo(cfg) {
   const r = regrasEntrega(cfg)

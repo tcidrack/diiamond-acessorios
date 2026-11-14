@@ -25,6 +25,8 @@ export default function Entrega() {
     ...c,
     entrega_modo: c.entrega_modo || 'bairros',
     origem_cep: mascaraCep(c.origem_cep || ''),
+    entrega_gratis_acima: Number(c.entrega_gratis_acima) > 0 ? numeroParaCampo(c.entrega_gratis_acima) : '',
+    ...('horario_entrega' in c ? { horario_entrega: c.horario_entrega ?? '' } : {}),
     ...Object.fromEntries(CAMPOS_NUM.map((k) => [k, numeroParaCampo(c[k] ?? PADRAO_ENTREGA[k])])),
     })
   }
@@ -65,6 +67,8 @@ export default function Entrega() {
       </div>
       <Erro>{erro}</Erro>
 
+      <HorarioEGratis cfg={cfg} setCfg={setCfg} paraTela={paraTela} setAviso={setAviso} />
+
       {cfg.entrega_modo === 'distancia' || !origemSalva ? (
         <Distancia cfg={cfg} setCfg={setCfg} paraTela={paraTela} setAviso={setAviso} />
       ) : null}
@@ -99,6 +103,59 @@ export default function Entrega() {
         </section>
       )}
     </>
+  )
+}
+
+/** Vale para os dois modos: horário de entrega (aparece na loja) e entrega grátis a partir de um valor. */
+function HorarioEGratis({ cfg, setCfg, paraTela, setAviso }) {
+  const [erro, setErro] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const temCampos = 'horario_entrega' in cfg
+
+  const salvar = async () => {
+    setErro('')
+    const gratis = String(cfg.entrega_gratis_acima || '').trim() ? parseBRL(cfg.entrega_gratis_acima) : null
+    if (gratis !== null && !(gratis >= 0)) return setErro('Valor da entrega grátis inválido.')
+    setSalvando(true)
+    try {
+      paraTela(await api.salvarConfig({
+        horario_entrega: String(cfg.horario_entrega || '').split('\n').map((l) => l.trim()).filter(Boolean).join('\n'),
+        entrega_gratis_acima: gratis || null,
+      }))
+      setAviso('Horário e entrega grátis salvos!')
+    } catch (e) {
+      setErro(/horario_entrega|entrega_gratis|column/i.test(e.message) ? 'Rode a SQL 0012_banners_horario_frete_gratis.sql no Supabase.' : e.message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <section className="card mb-4 grid gap-4 p-5 lg:grid-cols-2">
+      <Campo rotulo="Horário de entrega" ajuda="Uma linha para cada período. Aparece no checkout (quando a cliente escolhe Entrega) e no rodapé do site.">
+        <textarea
+          rows={3}
+          value={cfg.horario_entrega || ''}
+          onChange={(e) => setCfg((c) => ({ ...c, horario_entrega: e.target.value }))}
+          className="campo"
+          placeholder={'Segunda a sexta: 19h às 23h\nSábado e domingo: 9h às 23h'}
+        />
+      </Campo>
+      <div className="space-y-3">
+        <Campo rotulo="Entrega grátis a partir de (R$)" ajuda="Pedidos a partir desse valor (já com desconto de cupom) não pagam entrega. Vazio = desligado. Frete a combinar (muito longe) continua a combinar.">
+          <input
+            inputMode="decimal"
+            value={cfg.entrega_gratis_acima ?? ''}
+            onChange={(e) => setCfg((c) => ({ ...c, entrega_gratis_acima: e.target.value }))}
+            className="campo tnum w-40"
+            placeholder="Ex.: 30,00"
+          />
+        </Campo>
+        {!temCampos && <p className="text-xs text-ambar">Para usar estes campos, rode a SQL 0012 no Supabase.</p>}
+        <Erro>{erro}</Erro>
+        <button type="button" onClick={salvar} disabled={salvando} className="btn-primario w-full">{salvando ? 'Salvando…' : 'Salvar horário e entrega grátis'}</button>
+      </div>
+    </section>
   )
 }
 

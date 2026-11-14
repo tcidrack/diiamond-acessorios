@@ -11,27 +11,48 @@ export default function Configuracoes() {
   const [aviso, setAviso] = useAviso()
 
   useEffect(() => {
-    api.getConfig().then((c) => setCfg({ ...c, pedido_minimo: numeroParaCampo(c.pedido_minimo) })).catch((e) => setErro(e.message))
+    api.getConfig().then(paraTela).catch((e) => setErro(e.message))
   }, [])
+
+  // banners: lista de textos (antes da SQL 0012 só existe banner_texto, de um texto só)
+  function paraTela(c) {
+    const lista = Array.isArray(c.banners) && c.banners.length ? c.banners : c.banner_texto ? [c.banner_texto] : []
+    setCfg({ ...c, pedido_minimo: numeroParaCampo(c.pedido_minimo), _temBanners: Array.isArray(c.banners), _banners: lista.length ? lista : [''] })
+  }
 
   if (!cfg) return <p className="text-sm text-magenta/40">{erro || 'Carregando…'}</p>
 
   const set = (chave) => (e) => setCfg((c) => ({ ...c, [chave]: e?.target ? e.target.value : e }))
+
+  const mudarBanner = (i, texto) => setCfg((c) => ({ ...c, _banners: c._banners.map((t, j) => (j === i ? texto : t)) }))
+  const removerBanner = (i) => setCfg((c) => {
+    const resto = c._banners.filter((_, j) => j !== i)
+    return { ...c, _banners: resto.length ? resto : [''] }
+  })
+  const moverBanner = (i, d) => setCfg((c) => {
+    const l = [...c._banners]
+    ;[l[i], l[i + d]] = [l[i + d], l[i]]
+    return { ...c, _banners: l }
+  })
 
   const salvar = async (e) => {
     e.preventDefault()
     setSalvando(true)
     setErro('')
     try {
-      const { id, updated_at, ...campos } = cfg
+      const { id, updated_at, _temBanners, _banners, ...campos } = cfg
+      const banners = _banners.map((t) => t.trim()).filter(Boolean)
+      if (!_temBanners && banners.length > 1) throw new Error('Para usar mais de um aviso, rode a SQL 0012_banners_horario_frete_gratis.sql no Supabase.')
       const salvo = await api.salvarConfig({
         ...campos,
+        banner_texto: banners[0] || '',
+        ...(_temBanners ? { banners } : {}),
         whatsapp: String(campos.whatsapp || '').replace(/\D/g, ''),
         instagram: String(campos.instagram || '').replace(/^@/, '').trim(),
         infinitepay_handle: String(campos.infinitepay_handle || '').replace(/^\$/, '').trim(),
         pedido_minimo: parseBRL(campos.pedido_minimo) ?? 0,
       })
-      setCfg({ ...salvo, pedido_minimo: numeroParaCampo(salvo.pedido_minimo) })
+      paraTela(salvo)
       setAviso('Configurações salvas!')
     } catch (err) {
       setErro(err.message)
@@ -70,9 +91,26 @@ export default function Configuracoes() {
 
           <div className="space-y-4">
             <section className="card space-y-4 p-5">
-              <h2 className="font-display text-lg font-semibold text-magenta">Faixa de aviso no topo</h2>
-              <Toggle ativo={cfg.banner_ativo} onChange={set('banner_ativo')} rotulo="Mostrar faixa" />
-              <Campo rotulo="Texto"><input value={cfg.banner_texto || ''} onChange={set('banner_texto')} className="campo" placeholder="Frete grátis acima de R$ 100" /></Campo>
+              <h2 className="font-display text-lg font-semibold text-magenta">Avisos no topo</h2>
+              <Toggle ativo={cfg.banner_ativo} onChange={set('banner_ativo')} rotulo="Mostrar avisos" />
+              <p className="-mt-2 text-xs text-magenta/55">Com mais de um aviso, eles passam sozinhos, um de cada vez (a cada 4 segundos).</p>
+              <div className="space-y-2">
+                {cfg._banners.map((t, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <input
+                      value={t}
+                      onChange={(e) => mudarBanner(i, e.target.value)}
+                      className="campo"
+                      placeholder={i === 0 ? 'Ex.: 5% OFF no Pix' : 'Ex.: Entrega grátis a partir de R$ 30,00'}
+                      aria-label={`Aviso ${i + 1}`}
+                    />
+                    <button type="button" onClick={() => moverBanner(i, -1)} disabled={i === 0} className="btn-claro px-2.5" aria-label="Subir">↑</button>
+                    <button type="button" onClick={() => moverBanner(i, 1)} disabled={i === cfg._banners.length - 1} className="btn-claro px-2.5" aria-label="Descer">↓</button>
+                    <button type="button" onClick={() => removerBanner(i)} className="btn-claro px-2.5 text-vermelho" aria-label="Remover">✕</button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setCfg((c) => ({ ...c, _banners: [...c._banners, ''] }))} className="btn-claro w-full">+ Adicionar aviso</button>
+              </div>
             </section>
 
             <section className="card space-y-4 p-5">

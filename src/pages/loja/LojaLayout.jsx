@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import CarrinhoDrawer from '../../components/CarrinhoDrawer.jsx'
+import BannerRotativo, { textosBanners } from '../../components/BannerRotativo.jsx'
 import { useLoja } from '../../hooks/useLoja.jsx'
 import { MODO_DEMO } from '../../lib/supabase.js'
 
@@ -15,11 +16,7 @@ export default function LojaLayout() {
           Modo demonstração: os dados ficam só neste navegador. Configure o Supabase para usar de verdade.
         </p>
       )}
-      {config?.banner_ativo && config.banner_texto && (
-        <p className="bg-magenta px-4 py-2 text-center text-[13px] font-medium tracking-wide text-ouro-claro">
-          ✦ {config.banner_texto} ✦
-        </p>
-      )}
+      <BannerRotativo textos={textosBanners(config)} />
       <Header />
       {config?.aberta === false && (
         <p className="bg-vermelho-bg px-4 py-2 text-center text-sm font-medium text-vermelho">

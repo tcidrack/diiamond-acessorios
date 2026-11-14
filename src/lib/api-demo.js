@@ -1,5 +1,5 @@
 import { precoFinal } from './precos.js'
-import { calcularFrete } from './entrega.js'
+import { calcularFrete, ganhaEntregaGratis } from './entrega.js'
 import { buscarCep } from './cep.js'
 import { rotaKm } from './geoapify.js'
 import { encontrarRespostaPronta } from './respostas-prontas.js'
@@ -60,6 +60,8 @@ function seed() {
       instagram: 'diiamondacessorios', chave_pix: 'loja@exemplo.com', pix_nome: 'Diiamond Acessorios',
       pix_cidade: 'Brasilia', endereco_retirada: 'Combinar pelo WhatsApp', horario: 'Seg a sáb, 9h às 19h',
       banner_ativo: true, banner_texto: 'Frete grátis na retirada · Use o cupom BEMVINDA e ganhe 10% OFF',
+      banners: ['Use o cupom BEMVINDA e ganhe 10% OFF', 'Entrega grátis a partir de R$ 30,00'],
+      horario_entrega: 'Segunda a sexta: 19h às 23h\nSábado e domingo: 9h às 23h', entrega_gratis_acima: 30,
       aberta: true, pedido_minimo: 0, url_loja: '', infinitepay_handle: 'demo', mostrar_ultimas: true,
       entrega_modo: 'bairros', origem_cep: '', origem_lat: null, origem_lng: null,
       entrega_raio_km: 2, entrega_taxa_base: 3, entrega_valor_km: 1, entrega_max_km: 10, entrega_fator_rota: 1.3,
@@ -282,6 +284,7 @@ export const apiDemo = {
         bairroNome = bairro.nome
       }
     }
+    if (p.tipo_entrega === 'entrega' && !frete?.a_combinar && ganhaEntregaGratis(subtotal - desconto, cfg)) taxa = 0
     const total = Math.round((subtotal - desconto + taxa) * 100) / 100
     let troco = null
     if (p.forma_pagamento === 'dinheiro' && p.troco_para) {
