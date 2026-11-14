@@ -52,7 +52,7 @@ function seed() {
       instagram: 'diiamondacessorios', chave_pix: 'loja@exemplo.com', pix_nome: 'Diiamond Acessorios',
       pix_cidade: 'Brasilia', endereco_retirada: 'Combinar pelo WhatsApp', horario: 'Seg a sáb, 9h às 19h',
       banner_ativo: true, banner_texto: 'Frete grátis na retirada · Use o cupom BEMVINDA e ganhe 10% OFF',
-      aberta: true, pedido_minimo: 0, url_loja: '', infinitepay_handle: 'demo',
+      aberta: true, pedido_minimo: 0, url_loja: '', infinitepay_handle: 'demo', mostrar_ultimas: true,
     },
     categorias,
     produtos,

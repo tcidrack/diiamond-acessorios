@@ -114,7 +114,7 @@ export default function Produto() {
             <p className="rounded-2xl bg-blush/60 px-4 py-3 text-sm font-medium text-magenta">Esgotado no momento.</p>
           ) : (
             <>
-              {produto.estoque !== null && produto.estoque <= 3 && (
+              {config?.mostrar_ultimas !== false && produto.estoque !== null && produto.estoque <= 3 && (
                 <p className="text-sm font-medium text-ambar">Só {produto.estoque === 1 ? 'resta 1 unidade' : `restam ${produto.estoque} unidades`}!</p>
               )}
               <div className="flex items-center gap-3">

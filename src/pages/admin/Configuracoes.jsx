@@ -58,6 +58,10 @@ export default function Configuracoes() {
             <Campo rotulo="Instagram"><input value={cfg.instagram || ''} onChange={set('instagram')} className="campo" placeholder="diiamondacessorios" /></Campo>
             <Campo rotulo="Horário de atendimento"><input value={cfg.horario || ''} onChange={set('horario')} className="campo" placeholder="Seg a sáb, 9h às 19h" /></Campo>
             <Campo rotulo="Local de retirada" ajuda="Aparece para quem escolhe retirar."><input value={cfg.endereco_retirada || ''} onChange={set('endereco_retirada')} className="campo" /></Campo>
+            <div>
+              <Toggle ativo={cfg.mostrar_ultimas !== false} onChange={set('mostrar_ultimas')} rotulo="Mostrar aviso de últimas unidades" />
+              <p className="mt-1 text-xs text-magenta/55">Etiqueta "Últimas" e "Só resta 1 unidade!" nos produtos com até 3 peças em estoque.</p>
+            </div>
             <Campo rotulo="Pedido mínimo (R$)" ajuda="0 = sem mínimo."><input inputMode="decimal" value={cfg.pedido_minimo} onChange={set('pedido_minimo')} className="campo" /></Campo>
             <Campo rotulo="Endereço do site" ajuda="Usado pela IA para mandar links de produtos. Ex.: https://diamondacessorios.com.br">
               <input value={cfg.url_loja || ''} onChange={set('url_loja')} className="campo" placeholder={window.location.origin} />

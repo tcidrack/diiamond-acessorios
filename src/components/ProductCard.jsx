@@ -3,12 +3,14 @@ import Preco from './Preco.jsx'
 import { IconeDiamante, IconeSacola } from './Icones.jsx'
 import { esgotado, percentualDesconto } from '../lib/precos.js'
 import { useCarrinho } from '../hooks/useCarrinho.jsx'
+import { useLoja } from '../hooks/useLoja.jsx'
 
 export default function ProductCard({ produto }) {
   const { adicionar } = useCarrinho()
+  const { config } = useLoja()
   const off = percentualDesconto(produto)
   const semEstoque = esgotado(produto)
-  const poucas = !semEstoque && produto.estoque !== null && produto.estoque <= 3
+  const poucas = config?.mostrar_ultimas !== false && !semEstoque && produto.estoque !== null && produto.estoque <= 3
   const foto = produto.imagens?.[0]?.url
 
   return (
