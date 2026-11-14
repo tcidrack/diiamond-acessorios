@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { formatKm, valorEntrega } from '../../lib/entrega.js'
 import { Link, useParams } from 'react-router-dom'
 import { IconeImpressora, IconeVoltar, IconeWhatsApp } from '../../components/Icones.jsx'
 import { Erro, useAviso } from '../../components/admin/UI.jsx'
@@ -101,7 +102,7 @@ export default function PedidoDetalhe() {
           <dl className="mt-2 space-y-1 border-t border-blush pt-3 text-sm">
             <div className="flex justify-between"><dt>Subtotal</dt><dd className="tnum">{formatBRL(pedido.subtotal)}</dd></div>
             {Number(pedido.desconto) > 0 && <div className="flex justify-between text-verde"><dt>Cupom {pedido.cupom_codigo}</dt><dd className="tnum">-{formatBRL(pedido.desconto)}</dd></div>}
-            {pedido.tipo_entrega === 'entrega' && <div className="flex justify-between"><dt>Entrega</dt><dd className="tnum">{formatBRL(pedido.taxa_entrega)}</dd></div>}
+            {pedido.tipo_entrega === 'entrega' && <div className="flex justify-between"><dt>Entrega{pedido.distancia_km != null ? ` (${formatKm(pedido.distancia_km)})` : ''}</dt><dd className={`tnum ${pedido.entrega_a_combinar ? 'font-semibold text-ambar' : ''}`}>{valorEntrega(pedido)}</dd></div>}
             <div className="flex justify-between text-lg font-bold text-magenta"><dt>Total</dt><dd className="tnum">{formatBRL(pedido.total)}</dd></div>
           </dl>
         </section>
@@ -114,7 +115,15 @@ export default function PedidoDetalhe() {
             <p className="pt-2">
               <strong>{pedido.tipo_entrega === 'entrega' ? 'Entregar em:' : 'Vai retirar na loja'}</strong>
               {pedido.tipo_entrega === 'entrega' && (
-                <> {pedido.endereco}{pedido.complemento ? `, ${pedido.complemento}` : ''} — <strong>{pedido.bairro_nome}</strong>{pedido.referencia ? ` (ref.: ${pedido.referencia})` : ''}</>
+                <>
+                  {' '}{pedido.endereco}{pedido.complemento ? `, ${pedido.complemento}` : ''} — <strong>{pedido.bairro_nome}</strong>
+                  {pedido.cep ? ` · CEP ${pedido.cep.replace(/^(\d{5})/, '$1-')}` : ''}{pedido.referencia ? ` (ref.: ${pedido.referencia})` : ''}
+                  {pedido.entrega_a_combinar && (
+                    <span className="mt-1 block rounded-xl bg-ambar-bg px-3 py-2 text-ambar">
+                      <strong>Frete a combinar</strong> ({formatKm(pedido.distancia_km)}): passe o valor da entrega por aplicativo para a cliente pelo WhatsApp.
+                    </span>
+                  )}
+                </>
               )}
             </p>
             <p>

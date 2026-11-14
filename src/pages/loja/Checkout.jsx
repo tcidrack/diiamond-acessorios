@@ -4,6 +4,7 @@ import { IconeVoltar } from '../../components/Icones.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, parseBRL } from '../../lib/format.js'
 import { FORMAS_PAGAMENTO, esgotado } from '../../lib/precos.js'
+import { formatKm, mascaraCep, soDigitos } from '../../lib/entrega.js'
 import { itemDoProduto, useCarrinho } from '../../hooks/useCarrinho.jsx'
 import { useLoja } from '../../hooks/useLoja.jsx'
 
@@ -36,6 +37,8 @@ export default function Checkout() {
     cliente_telefone: salvo.cliente_telefone || '',
     tipo_entrega: salvo.tipo_entrega || 'entrega',
     bairro_id: salvo.bairro_id || '',
+    cep: salvo.cep || '',
+    bairro: salvo.bairro || '',
     endereco: salvo.endereco || '',
     complemento: salvo.complemento || '',
     referencia: salvo.referencia || '',
@@ -53,10 +56,43 @@ export default function Checkout() {
     api.listBairros().then(setBairros).catch(() => setBairros([]))
   }, [])
 
-  // sem bairro cadastrado não existe entrega: força retirada
+  // entrega por distância (CEP) ou pela lista de bairros, conforme o painel
+  const modoDistancia = config?.entrega_modo === 'distancia'
+  const entregaIndisponivel = modoDistancia ? config?.origem_lat == null : bairros?.length === 0
+
+  // sem como calcular a entrega: força retirada
   useEffect(() => {
-    if (bairros?.length === 0 && form.tipo_entrega === 'entrega') setForm((f) => ({ ...f, tipo_entrega: 'retirada' }))
-  }, [bairros, form.tipo_entrega])
+    if (config && entregaIndisponivel && form.tipo_entrega === 'entrega') setForm((f) => ({ ...f, tipo_entrega: 'retirada' }))
+  }, [config, entregaIndisponivel, form.tipo_entrega])
+
+  // CEP completo: busca o endereço e o valor da entrega
+  const [cotacao, setCotacao] = useState(null) // null | { carregando } | resposta de cotarEntrega
+  const cepDigitos = soDigitos(form.cep)
+  useEffect(() => {
+    if (!modoDistancia || form.tipo_entrega !== 'entrega' || cepDigitos.length !== 8) {
+      setCotacao(null)
+      return
+    }
+    let ativo = true
+    setCotacao({ carregando: true })
+    const t = setTimeout(() => {
+      api.cotarEntrega(cepDigitos)
+        .then((r) => {
+          if (!ativo) return
+          setCotacao(r)
+          if (r?.logradouro || r?.bairro) {
+            setForm((f) => ({
+              ...f,
+              endereco: f.endereco.trim() ? f.endereco : (r.logradouro ? `${r.logradouro}, ` : ''),
+              bairro: f.bairro.trim() && f.cepDoBairro === cepDigitos ? f.bairro : (r.bairro || f.bairro),
+              cepDoBairro: cepDigitos,
+            }))
+          }
+        })
+        .catch((e) => ativo && setCotacao({ ok: false, erro: e.message }))
+    }, 300)
+    return () => { ativo = false; clearTimeout(t) }
+  }, [modoDistancia, form.tipo_entrega, cepDigitos])
 
   // só os dígitos, e só quando o número está completo: o cupom pode ter limite por cliente
   const digitosTel = form.cliente_telefone.replace(/\D/g, '')
@@ -77,7 +113,11 @@ export default function Checkout() {
   const campo = (chave) => (e) => setForm((f) => ({ ...f, [chave]: e.target.value }))
   const listaBairros = bairros || []
   const bairro = listaBairros.find((b) => String(b.id) === String(form.bairro_id))
-  const taxa = form.tipo_entrega === 'entrega' ? Number(bairro?.taxa || 0) : 0
+  const freteOk = !!cotacao?.ok
+  const freteCombinar = modoDistancia && freteOk && cotacao.a_combinar
+  const taxa = form.tipo_entrega !== 'entrega' ? 0
+    : modoDistancia ? (freteOk ? Number(cotacao.taxa) || 0 : 0)
+      : Number(bairro?.taxa || 0)
   const desconto = cupom?.desconto || 0
   const total = Math.max(0, subtotal - desconto) + taxa
   const formasPagamento = Object.entries(FORMAS_PAGAMENTO).filter(([chave]) => chave !== 'cartao_online' || config?.infinitepay_handle)
@@ -97,7 +137,8 @@ export default function Checkout() {
   const finalizar = async (e) => {
     e.preventDefault()
     setErro('')
-    if (form.tipo_entrega === 'entrega' && !bairro) return setErro('Escolha o bairro de entrega.')
+    if (form.tipo_entrega === 'entrega' && !modoDistancia && !bairro) return setErro('Escolha o bairro de entrega.')
+    if (form.tipo_entrega === 'entrega' && modoDistancia && !freteOk) return setErro(cotacao?.erro || 'Informe o CEP da entrega.')
     const troco = form.forma_pagamento === 'dinheiro' && form.troco_para ? parseBRL(form.troco_para) : null
     if (troco !== null && troco < total) return setErro('O valor para troco precisa ser maior que o total.')
 
@@ -109,7 +150,7 @@ export default function Checkout() {
         cupom: cupom?.codigo || '',
         itens: itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
       })
-      const { forma_pagamento, troco_para, observacao, ...dadosCliente } = form
+      const { forma_pagamento, troco_para, observacao, cepDoBairro, ...dadosCliente } = form
       try { localStorage.setItem(CHAVE_CLIENTE, JSON.stringify(dadosCliente)) } catch { /* modo privado */ }
       if (!compraDireta) carrinho.limpar()
       recarregar()
@@ -166,22 +207,54 @@ export default function Checkout() {
 
           <Secao numero="2" titulo="Entrega ou retirada">
             <div className="grid grid-cols-2 gap-2">
-              <Opcao ativo={form.tipo_entrega === 'entrega'} disabled={bairros?.length === 0} onClick={() => setForm((f) => ({ ...f, tipo_entrega: 'entrega' }))} titulo="Entrega" detalhe={bairros?.length === 0 ? 'Indisponível' : 'Taxa por bairro'} />
+              <Opcao ativo={form.tipo_entrega === 'entrega'} disabled={entregaIndisponivel} onClick={() => setForm((f) => ({ ...f, tipo_entrega: 'entrega' }))} titulo="Entrega" detalhe={entregaIndisponivel ? 'Indisponível' : modoDistancia ? 'Taxa pela distância' : 'Taxa por bairro'} />
               <Opcao ativo={form.tipo_entrega === 'retirada'} onClick={() => setForm((f) => ({ ...f, tipo_entrega: 'retirada' }))} titulo="Retirada" detalhe="Sem taxa" />
             </div>
 
             {form.tipo_entrega === 'entrega' ? (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="sm:col-span-2">
-                  <span className="rotulo">Bairro</span>
-                  <select required value={form.bairro_id} onChange={campo('bairro_id')} className="campo">
-                    <option value="">Escolha o bairro…</option>
-                    {listaBairros.map((b) => (
-                      <option key={b.id} value={b.id}>{b.nome} — {Number(b.taxa) > 0 ? formatBRL(b.taxa) : 'grátis'}</option>
-                    ))}
-                  </select>
-                  <span className="mt-1 block text-xs text-magenta/45">Não achou seu bairro? Chame a loja no WhatsApp.</span>
-                </label>
+                {modoDistancia ? (
+                  <>
+                    <label>
+                      <span className="rotulo">CEP</span>
+                      <input
+                        required
+                        inputMode="numeric"
+                        autoComplete="postal-code"
+                        value={form.cep}
+                        onChange={(e) => setForm((f) => ({ ...f, cep: mascaraCep(e.target.value) }))}
+                        className="campo tnum"
+                        placeholder="00000-000"
+                      />
+                      <a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noreferrer" className="mt-1 block text-xs text-magenta/45 underline">
+                        Não sei meu CEP
+                      </a>
+                    </label>
+                    <label>
+                      <span className="rotulo">Bairro</span>
+                      <input required value={form.bairro} onChange={campo('bairro')} className="campo" placeholder="Seu bairro" />
+                    </label>
+                    {cotacao && (
+                      <div className={`sm:col-span-2 rounded-2xl px-4 py-3 text-sm ${cotacao.carregando ? 'bg-cream text-magenta/60' : freteCombinar ? 'bg-ambar-bg text-ambar' : freteOk ? 'bg-verde-bg text-verde' : 'bg-vermelho-bg/60 text-vermelho'}`} role="status">
+                        {cotacao.carregando ? 'Calculando a entrega…'
+                          : !freteOk ? cotacao.erro
+                            : freteCombinar ? <>Seu endereço fica a {formatKm(cotacao.km)}. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido (entrega por aplicativo) e não entra no total abaixo.</>
+                              : <>Entrega: {formatKm(cotacao.km)} · <strong>{taxa > 0 ? formatBRL(taxa) : 'grátis'}</strong></>}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <label className="sm:col-span-2">
+                    <span className="rotulo">Bairro</span>
+                    <select required value={form.bairro_id} onChange={campo('bairro_id')} className="campo">
+                      <option value="">Escolha o bairro…</option>
+                      {listaBairros.map((b) => (
+                        <option key={b.id} value={b.id}>{b.nome} — {Number(b.taxa) > 0 ? formatBRL(b.taxa) : 'grátis'}</option>
+                      ))}
+                    </select>
+                    <span className="mt-1 block text-xs text-magenta/45">Não achou seu bairro? Chame a loja no WhatsApp.</span>
+                  </label>
+                )}
                 <label className="sm:col-span-2">
                   <span className="rotulo">Endereço (rua, número)</span>
                   <input required autoComplete="street-address" value={form.endereco} onChange={campo('endereco')} className="campo" placeholder="Rua, quadra, número" />
@@ -260,7 +333,12 @@ export default function Checkout() {
             <dl className="space-y-1.5 border-t border-blush pt-3 text-sm">
               <Linha rotulo="Subtotal" valor={formatBRL(subtotal)} />
               {desconto > 0 && <Linha rotulo={`Cupom ${cupom.codigo}`} valor={`-${formatBRL(desconto)}`} verde />}
-              {form.tipo_entrega === 'entrega' && <Linha rotulo="Entrega" valor={bairro ? (taxa > 0 ? formatBRL(taxa) : 'Grátis') : '—'} />}
+              {form.tipo_entrega === 'entrega' && (
+                <Linha
+                  rotulo={modoDistancia && freteOk ? `Entrega (${formatKm(cotacao.km)})` : 'Entrega'}
+                  valor={freteCombinar ? 'A combinar' : (modoDistancia ? freteOk : bairro) ? (taxa > 0 ? formatBRL(taxa) : 'Grátis') : '—'}
+                />
+              )}
               <div className="flex items-baseline justify-between border-t border-blush pt-2">
                 <dt className="font-semibold text-magenta">Total</dt>
                 <dd className="tnum text-2xl font-bold text-magenta">{formatBRL(total)}</dd>

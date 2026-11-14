@@ -1,4 +1,5 @@
 import { precoFinal } from './precos.js'
+import { calcularFrete } from './entrega.js'
 import { encontrarRespostaPronta } from './respostas-prontas.js'
 
 /**
@@ -58,6 +59,8 @@ function seed() {
       pix_cidade: 'Brasilia', endereco_retirada: 'Combinar pelo WhatsApp', horario: 'Seg a sáb, 9h às 19h',
       banner_ativo: true, banner_texto: 'Frete grátis na retirada · Use o cupom BEMVINDA e ganhe 10% OFF',
       aberta: true, pedido_minimo: 0, url_loja: '', infinitepay_handle: 'demo', mostrar_ultimas: true,
+      entrega_modo: 'bairros', origem_cep: '', origem_lat: null, origem_lng: null,
+      entrega_raio_km: 2, entrega_taxa_base: 3, entrega_valor_km: 1, entrega_max_km: 10, entrega_fator_rota: 1.3,
     },
     categorias,
     produtos,
@@ -210,6 +213,23 @@ export const apiDemo = {
     return validarCupomDb(carregar(), codigo, subtotal, telefone)
   },
 
+  // Demonstração: consulta o CEP direto do navegador e guarda no localStorage
+  async cotarEntrega(cep) {
+    const c = String(cep || '').replace(/\D/g, '')
+    if (c.length !== 8) return { ok: false, erro: 'Informe um CEP válido.' }
+    const db = carregar()
+    db.ceps = db.ceps || {}
+    if (!db.ceps[c]) {
+      const r = await fetch(`https://cep.awesomeapi.com.br/json/${c}`).then((x) => (x.ok ? x.json() : null)).catch(() => null)
+      if (!r?.lat) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
+      db.ceps[c] = { cep: c, lat: Number(r.lat), lng: Number(r.lng), logradouro: r.address || '', bairro: r.district || '', cidade: r.city || '', uf: r.state || '' }
+      gravar(db)
+    }
+    const end = db.ceps[c]
+    const frete = calcularFrete(db.config_loja, end.lat, end.lng)
+    return { ...end, ...frete }
+  },
+
   async criarPedido(p) {
     await espera(400)
     const db = carregar()
@@ -247,11 +267,24 @@ export const apiDemo = {
 
     let taxa = 0
     let bairro = null
+    let bairroNome = null
+    let frete = null
+    const cep = String(p.cep || '').replace(/\D/g, '')
     if (p.tipo_entrega === 'entrega') {
-      bairro = db.bairros_entrega.find((b) => b.id === Number(p.bairro_id) && b.ativo)
-      if (!bairro) throw new Error('Escolha um bairro de entrega.')
       if (String(p.endereco || '').trim().length < 5) throw new Error('Informe o endereço de entrega.')
-      taxa = Number(bairro.taxa)
+      if (cfg.entrega_modo === 'distancia') {
+        const end = db.ceps?.[cep]
+        if (!end) throw new Error('Informe um CEP válido.')
+        frete = calcularFrete(cfg, end.lat, end.lng)
+        if (!frete.ok) throw new Error(frete.erro)
+        taxa = frete.taxa
+        bairroNome = String(p.bairro || '').trim() || end.bairro
+      } else {
+        bairro = db.bairros_entrega.find((b) => b.id === Number(p.bairro_id) && b.ativo)
+        if (!bairro) throw new Error('Escolha um bairro de entrega.')
+        taxa = Number(bairro.taxa)
+        bairroNome = bairro.nome
+      }
     }
     const total = Math.round((subtotal - desconto + taxa) * 100) / 100
     let troco = null
@@ -270,7 +303,8 @@ export const apiDemo = {
     const pedido = {
       id, codigo: 'DM' + proximoId(db, 'pedido'), token: crypto.randomUUID(),
       cliente_nome: nome, cliente_telefone: tel, tipo_entrega: p.tipo_entrega,
-      bairro_id: bairro?.id ?? null, bairro_nome: bairro?.nome ?? null,
+      bairro_id: bairro?.id ?? null, bairro_nome: bairroNome,
+      cep: frete ? cep : null, distancia_km: frete?.km ?? null, entrega_a_combinar: !!frete?.a_combinar,
       endereco: p.tipo_entrega === 'entrega' ? p.endereco : null, complemento: p.complemento || '',
       referencia: p.referencia || '', observacao: p.observacao || '', forma_pagamento: p.forma_pagamento,
       troco_para: troco, subtotal, desconto, taxa_entrega: taxa, total, cupom_codigo: cupom,

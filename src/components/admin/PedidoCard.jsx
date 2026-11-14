@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { detalheEntrega } from '../../lib/entrega.js'
 import { formatBRL, formatData } from '../../lib/format.js'
 import { FORMAS_PAGAMENTO, STATUS_PEDIDO } from '../../lib/precos.js'
 
@@ -16,7 +17,7 @@ export default function PedidoCard({ pedido }) {
         <div className="min-w-0 text-sm">
           <p className="truncate font-medium">{pedido.cliente_nome}</p>
           <p className="truncate text-xs text-magenta/55">
-            {pecas} {pecas === 1 ? 'peça' : 'peças'} · {pedido.tipo_entrega === 'entrega' ? `Entrega · ${pedido.bairro_nome}` : 'Retirada'} · {FORMAS_PAGAMENTO[pedido.forma_pagamento]?.rotulo}
+            {pecas} {pecas === 1 ? 'peça' : 'peças'} · {pedido.tipo_entrega === 'entrega' ? `Entrega · ${detalheEntrega(pedido)}${pedido.entrega_a_combinar ? ' · frete a combinar' : ''}` : 'Retirada'} · {FORMAS_PAGAMENTO[pedido.forma_pagamento]?.rotulo}
           </p>
         </div>
         <span className="tnum shrink-0 text-lg font-bold text-magenta">{formatBRL(pedido.total)}</span>

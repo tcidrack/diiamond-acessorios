@@ -67,6 +67,11 @@ export const apiSupabase = {
     return ok(await supabase.rpc('validar_cupom', { p_codigo: codigo, p_subtotal: subtotal, p_telefone: telefone || null }))
   },
 
+  /** Entrega por distância: endereço do CEP + taxa calculada no servidor. */
+  async cotarEntrega(cep) {
+    return this.funcao('cep-entrega', { cep })
+  },
+
   async criarPedido(payload) {
     return ok(await supabase.rpc('criar_pedido', { p: payload }))
   },

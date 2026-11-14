@@ -1,4 +1,5 @@
 import { formatBRL } from './format.js'
+import { detalheEntrega, valorEntrega } from './entrega.js'
 import { FORMAS_PAGAMENTO } from './precos.js'
 
 /** Texto que o cliente manda para o WhatsApp da loja ao finalizar. */
@@ -11,11 +12,11 @@ export function mensagemPedidoWhatsApp(pedido, itens, link) {
     `Subtotal: ${formatBRL(pedido.subtotal)}`,
   ]
   if (Number(pedido.desconto) > 0) linhas.push(`Desconto${pedido.cupom_codigo ? ` (${pedido.cupom_codigo})` : ''}: -${formatBRL(pedido.desconto)}`)
-  if (pedido.tipo_entrega === 'entrega') linhas.push(`Entrega (${pedido.bairro_nome}): ${formatBRL(pedido.taxa_entrega)}`)
+  if (pedido.tipo_entrega === 'entrega') linhas.push(`Entrega (${detalheEntrega(pedido)}): ${pedido.entrega_a_combinar ? 'a combinar' : valorEntrega(pedido)}`)
   linhas.push(`*Total: ${formatBRL(pedido.total)}*`, '')
   linhas.push(`Nome: ${pedido.cliente_nome}`)
   if (pedido.tipo_entrega === 'entrega') {
-    linhas.push(`Entrega: ${pedido.endereco}${pedido.complemento ? `, ${pedido.complemento}` : ''} — ${pedido.bairro_nome}`)
+    linhas.push(`Entrega: ${pedido.endereco}${pedido.complemento ? `, ${pedido.complemento}` : ''} — ${pedido.bairro_nome}${pedido.cep ? ` (CEP ${pedido.cep.replace(/^(\d{5})/, '$1-')})` : ''}`)
     if (pedido.referencia) linhas.push(`Referência: ${pedido.referencia}`)
   } else {
     linhas.push('Vou retirar na loja')
