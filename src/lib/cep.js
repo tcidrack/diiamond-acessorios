@@ -1,4 +1,4 @@
-import { bairrosDaRua, buscarBairro, buscarEndereco, geocodificarGeoapify } from './geoapify.js'
+import { bairrosDaRua, buscarBairro, buscarEndereco, geocodificarGeoapify, separarRuaNumero } from './geoapify.js'
 import { haversine } from './entrega.js'
 
 /**
@@ -95,7 +95,13 @@ async function opcoesDaLoja(cfg) {
 
 /** Bairros possíveis para a rua digitada (para a cliente escolher o dela). */
 export async function sugerirBairros(endereco, cfg) {
-  return bairrosDaRua(endereco, await opcoesDaLoja(cfg))
+  const opcoes = await opcoesDaLoja(cfg)
+  // com número e casa exata no mapa: só o bairro da casa (a rua pode passar por vários bairros)
+  if (separarRuaNumero(endereco).numero) {
+    const casa = await buscarEndereco(endereco, opcoes)
+    if (casa?.achouNumero && casa.bairro) return [casa.bairro]
+  }
+  return bairrosDaRua(endereco, opcoes)
 }
 
 export async function localPorEndereco({ endereco, bairro }, cfg) {
