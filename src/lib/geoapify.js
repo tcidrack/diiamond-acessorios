@@ -73,7 +73,7 @@ export async function geocodificarGeoapify(end) {
  * Endereço digitado (ex.: "Rua José Abílio, 804") → `{ lat, lng, rotulo, achouNumero, bairro, cep }` ou null.
  * Só aceita a rua digitada (a Geoapify às vezes devolve o mesmo número em outra rua) e procura num raio
  * em volta de `perto` (ponto do CEP ou da loja). `bairro` desempata ruas de mesmo nome ("Rua 101" existe em
- * vários conjuntos), mas não reprova: o nome do bairro varia ("Granja Lisboa" × "Granja Portugal").
+ * vários conjuntos), mas não reprova: o nome do bairro varia entre o mapa e o que a cliente digita.
  */
 export async function buscarEndereco(texto, { cidade = '', uf = '', perto = null, raioKm = 8, bairro = '' } = {}) {
   if (!GEOAPIFY_KEY) return null
@@ -81,7 +81,7 @@ export async function buscarEndereco(texto, { cidade = '', uf = '', perto = null
   let [ruaTexto, resto = ''] = String(texto || '').split(',').map((s) => s.trim())
   let numero = (resto.match(/\d+/) || [''])[0]
   if (!resto) {
-    // "Rua José Abílio 804", "Rua Luminosa nº 2073", "Rua 339 67" (mas "Rua 339" sozinha é só a rua)
+    // "Rua das Flores 123", "Rua das Flores nº 123", "Rua 10 45" (mas "Rua 10" sozinha é só a rua)
     const m = ruaTexto.match(/^(.*?)\s+(?:n[º°o]?\.?\s*)?(\d{1,5})$/i)
     if (m && !/^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?)$/i.test(m[1].trim())) [ruaTexto, numero] = [m[1].trim(), m[2]]
   } else {

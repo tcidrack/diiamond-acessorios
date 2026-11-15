@@ -246,7 +246,7 @@ export default function Checkout() {
                   <>
                     <label className="sm:col-span-2">
                       <span className="rotulo">Endereço (rua e número)</span>
-                      <input required autoComplete="street-address" value={form.endereco} onChange={campo('endereco')} className="campo" placeholder="Ex.: Rua Luminosa, 2073" />
+                      <input required autoComplete="street-address" value={form.endereco} onChange={campo('endereco')} className="campo" placeholder="Ex.: Rua das Flores, 123" />
                     </label>
                     <label className="sm:col-span-2">
                       <span className="rotulo">Bairro</span>
