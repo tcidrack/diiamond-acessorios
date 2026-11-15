@@ -88,7 +88,8 @@ export const mascaraCep = (v) => soDigitos(v).slice(0, 8).replace(/^(\d{5})(\d)/
 
 /** "Granja Portugal · 3,4 km" (o km só aparece em pedido pela distância e só para a dona: `comKm`). */
 export function detalheEntrega(pedido, { comKm = true } = {}) {
-  return [pedido.bairro_nome, comKm && pedido.distancia_km != null ? formatKm(pedido.distancia_km) : null].filter(Boolean).join(' · ')
+  const km = comKm && pedido.distancia_km != null ? (pedido.entrega_aproximada ? `≈ ${formatKm(pedido.distancia_km)} (aproximado)` : formatKm(pedido.distancia_km)) : null
+  return [pedido.bairro_nome, km].filter(Boolean).join(' · ')
 }
 
 /** Valor da entrega para mostrar: "R$ 7,00", "Grátis" ou "A combinar". */

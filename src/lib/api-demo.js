@@ -1,6 +1,6 @@
 import { precoFinal } from './precos.js'
 import { calcularFrete, ganhaEntregaGratis } from './entrega.js'
-import { localDaEntrega } from './cep.js'
+import { localDaEntrega, localPorEndereco } from './cep.js'
 import { rotaKm } from './geoapify.js'
 import { encontrarRespostaPronta } from './respostas-prontas.js'
 
@@ -218,9 +218,10 @@ export const apiDemo = {
   },
 
   // Demonstração: consulta o CEP direto do navegador e guarda no localStorage
-  async cotarEntrega(cep, { numero } = {}) {
-    if (String(cep || '').replace(/\D/g, '').length !== 8) return { ok: false, erro: 'Informe um CEP válido.' }
-    const end = await localDaEntrega(cep, numero)
+  async cotarEntrega(destino, { numero } = {}) {
+    const porEndereco = typeof destino === 'object' && destino !== null
+    if (!porEndereco && String(destino || '').replace(/\D/g, '').length !== 8) return { ok: false, erro: 'Informe um CEP válido.' }
+    const end = porEndereco ? await localPorEndereco(destino, carregar().config_loja) : await localDaEntrega(destino, numero)
     if (!end) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
     const cfg = carregar().config_loja
     const kmRota = end.lat != null && cfg.origem_lat != null ? await rotaKm({ lat: cfg.origem_lat, lng: cfg.origem_lng }, end) : null
@@ -270,7 +271,6 @@ export const apiDemo = {
     if (p.tipo_entrega === 'entrega') {
       if (String(p.endereco || '').trim().length < 5) throw new Error('Informe o endereço de entrega.')
       if (cfg.entrega_modo === 'distancia') {
-        if (cep.length !== 8) throw new Error('Informe um CEP válido.')
         const lat = p.lat == null || p.lat === '' ? null : Number(p.lat)
         const lng = p.lng == null || p.lng === '' ? null : Number(p.lng)
         frete = calcularFrete(cfg, lat, lng, p.km_rota ?? null)
@@ -303,7 +303,8 @@ export const apiDemo = {
       id, codigo: 'DM' + proximoId(db, 'pedido'), token: crypto.randomUUID(),
       cliente_nome: nome, cliente_telefone: tel, tipo_entrega: p.tipo_entrega,
       bairro_id: bairro?.id ?? null, bairro_nome: bairroNome,
-      cep: frete ? cep : null, distancia_km: frete?.km ?? null, entrega_a_combinar: !!frete?.a_combinar,
+      cep: frete && cep.length === 8 ? cep : null, distancia_km: frete?.km ?? null, entrega_a_combinar: !!frete?.a_combinar,
+      entrega_aproximada: !!frete && frete.km != null && !!p.aproximado,
       endereco: p.tipo_entrega === 'entrega' ? p.endereco : null, complemento: p.complemento || '',
       referencia: p.referencia || '', observacao: p.observacao || '', forma_pagamento: p.forma_pagamento,
       troco_para: troco, subtotal, desconto, taxa_entrega: taxa, total, cupom_codigo: cupom,

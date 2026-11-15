@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js'
-import { localDaEntrega } from './cep.js'
+import { localDaEntrega, localPorEndereco } from './cep.js'
 import { rotaKm } from './geoapify.js'
 
 /**
@@ -69,25 +69,37 @@ export const apiSupabase = {
     return ok(await supabase.rpc('validar_cupom', { p_codigo: codigo, p_subtotal: subtotal, p_telefone: telefone || null }))
   },
 
-  /** Entrega por distância: o celular busca o CEP e o banco calcula a taxa (o pedido recalcula de novo). */
-  async cotarEntrega(cep, { numero } = {}) {
-    const end = await localDaEntrega(cep, numero)
+  /**
+   * Entrega por distância. Checkout: `{ endereco, bairro }` (endereço exato da cliente, sem CEP).
+   * Painel ("Testar um CEP"): o CEP. O banco calcula a taxa (e o pedido recalcula de novo).
+   */
+  async cotarEntrega(destino, { numero } = {}) {
+    const cfg = await this.getConfig().catch(() => null)
+    const porEndereco = typeof destino === 'object' && destino !== null
+    const end = porEndereco ? await localPorEndereco(destino, cfg) : await localDaEntrega(destino, numero)
     if (!end) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
     // distância de moto pelas ruas (o banco só aceita se for plausível)
-    let kmRota = null
-    if (end.lat != null) {
-      const cfg = await this.getConfig().catch(() => null)
-      if (cfg?.origem_lat != null) kmRota = await rotaKm({ lat: cfg.origem_lat, lng: cfg.origem_lng }, end)
+    const kmRota = end.lat != null && cfg?.origem_lat != null ? await rotaKm({ lat: cfg.origem_lat, lng: cfg.origem_lng }, end) : null
+    // sem CEP: até rodar a SQL 0014 o banco ainda pede um CEP só para validar (o cálculo é pelo ponto)
+    const cep = end.cep || (porEndereco ? '' : destino)
+    let r = await supabase.rpc('calcular_entrega', { p_cep: cep, p_lat: end.lat, p_lng: end.lng, p_km_rota: kmRota })
+    if (!r.error && r.data?.ok === false && !cep && cfg?.origem_cep && /CEP/i.test(r.data.erro || '')) {
+      r = await supabase.rpc('calcular_entrega', { p_cep: cfg.origem_cep, p_lat: end.lat, p_lng: end.lng, p_km_rota: kmRota })
     }
-    let r = await supabase.rpc('calcular_entrega', { p_cep: end.cep, p_lat: end.lat, p_lng: end.lng, p_km_rota: kmRota })
     // banco ainda sem a SQL 0011: calcula do jeito antigo (linha reta × fator)
-    if (r.error) r = await supabase.rpc('calcular_entrega', { p_cep: end.cep, p_lat: end.lat, p_lng: end.lng })
+    if (r.error) r = await supabase.rpc('calcular_entrega', { p_cep: cep || cfg?.origem_cep, p_lat: end.lat, p_lng: end.lng })
     const frete = ok(r)
     return { ...end, km_rota: kmRota, ...frete }
   },
 
   async criarPedido(payload) {
-    return ok(await supabase.rpc('criar_pedido', { p: payload }))
+    const r = await supabase.rpc('criar_pedido', { p: payload })
+    // banco ainda sem a SQL 0014 (exige CEP na entrega por distância): manda o CEP da loja só para passar
+    if (r.error && /CEP válido/i.test(r.error.message || '') && !String(payload.cep || '').trim()) {
+      const cfg = await this.getConfig().catch(() => null)
+      if (cfg?.origem_cep) return ok(await supabase.rpc('criar_pedido', { p: { ...payload, cep: cfg.origem_cep } }))
+    }
+    return ok(r)
   },
 
   async consultarPedido(codigo, token) {

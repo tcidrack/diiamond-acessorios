@@ -70,46 +70,75 @@ export async function geocodificarGeoapify(end) {
 }
 
 /**
- * Endereço digitado pela dona (ex.: "Rua José Abílio, 804") → `{ lat, lng, rotulo, achouNumero }` ou null.
- * Só aceita a rua digitada (a Geoapify às vezes devolve o mesmo número em outra rua) e procura
- * perto de `perto` (ponto do CEP), se houver.
+ * Endereço digitado (ex.: "Rua José Abílio, 804") → `{ lat, lng, rotulo, achouNumero, bairro, cep }` ou null.
+ * Só aceita a rua digitada (a Geoapify às vezes devolve o mesmo número em outra rua) e procura num raio
+ * em volta de `perto` (ponto do CEP ou da loja). `bairro` desempata ruas de mesmo nome ("Rua 101" existe em
+ * vários conjuntos), mas não reprova: o nome do bairro varia ("Granja Lisboa" × "Granja Portugal").
  */
-export async function buscarEndereco(texto, { cidade = '', uf = '', perto = null } = {}) {
+export async function buscarEndereco(texto, { cidade = '', uf = '', perto = null, raioKm = 8, bairro = '' } = {}) {
   if (!GEOAPIFY_KEY) return null
   // separa rua e número da casa SEM apagar números do nome da rua ("Rua 339, 67" → "Rua 339" + "67")
   let [ruaTexto, resto = ''] = String(texto || '').split(',').map((s) => s.trim())
   let numero = (resto.match(/\d+/) || [''])[0]
   if (!resto) {
-    const m = ruaTexto.match(/^(.*\D)\s+(\d{1,5})$/) // "Rua José Abílio 804"
-    if (m) [ruaTexto, numero] = [m[1].trim(), m[2]]
+    // "Rua José Abílio 804", "Rua Luminosa nº 2073", "Rua 339 67" (mas "Rua 339" sozinha é só a rua)
+    const m = ruaTexto.match(/^(.*?)\s+(?:n[º°o]?\.?\s*)?(\d{1,5})$/i)
+    if (m && !/^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?)$/i.test(m[1].trim())) [ruaTexto, numero] = [m[1].trim(), m[2]]
+  } else {
+    ruaTexto = ruaTexto.replace(/\s+n[º°o]?\.?$/i, '') // "Rua X nº, 10"
   }
   const semPrefixo = (s) => norm(s).replace(/^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?) /, '')
   const rua = semPrefixo(ruaTexto)
   if (!rua) return null
-  const raio = perto?.lat != null ? { filter: `circle:${perto.lng},${perto.lat},8000`, bias: `proximity:${perto.lng},${perto.lat}` } : { filter: 'countrycode:br' }
+  const raio = perto?.lat != null
+    ? { filter: `circle:${perto.lng},${perto.lat},${Math.round(raioKm * 1000)}`, bias: `proximity:${perto.lng},${perto.lat}` }
+    : { filter: 'countrycode:br' }
   const base = { ...raio, limit: '10' }
   const [a, b] = await Promise.all([
     chamar('search', { ...base, street: ruaTexto, housenumber: numero, city: cidade, state: uf }),
-    chamar('search', { ...base, text: [ruaTexto, numero, cidade, uf].filter(Boolean).join(', ') }),
+    chamar('search', { ...base, text: [ruaTexto, numero, bairro, cidade, uf].filter(Boolean).join(', ') }),
   ])
   // mesma rua = nome igual (sem "Rua"/"Av."), não "contém": "Rua 339" não pode casar com "Rua 1339"
   const mesmaRua = (x) => Number.isFinite(x.lat) && Number.isFinite(x.lon) && semPrefixo(x.street || x.name) === rua
   let todos = [...a, ...b].filter(mesmaRua)
-  // número desconhecido no mapa: procura só a rua (a dona arrasta o pino até a porta)
+  // número desconhecido no mapa: procura só a rua
   if (!todos.length && numero) {
     todos = (await chamar('search', { ...base, street: ruaTexto, city: cidade, state: uf })).filter(mesmaRua)
   }
   // número "achado" com pouca confiança = a Geoapify inventou (ex.: nº 99999): não serve
   const confiavel = (x) => (x.rank?.confidence ?? 1) >= 0.9
-  const comNumero = numero && todos.find((x) => String(x.housenumber || '') === numero && confiavel(x))
-  const r = comNumero || todos[0]
+  const temNumero = (x) => !!numero && String(x.housenumber || '') === numero && confiavel(x)
+  const b0 = norm(bairro)
+  const doBairro = (x) => !!b0 && [x.suburb, x.district, x.quarter, x.neighbourhood].some((v) => !!norm(v) && (norm(v) === b0 || norm(v).includes(b0) || b0.includes(norm(v))))
+  const dist = (x) => (perto?.lat != null ? (x.lat - perto.lat) ** 2 + (x.lon - perto.lng) ** 2 : 0)
+  // prioridade: mesmo bairro, depois número exato, depois o mais perto
+  const nota = (x) => (doBairro(x) ? 2 : 0) + (temNumero(x) ? 1 : 0)
+  const r = [...todos].sort((x, y) => nota(y) - nota(x) || dist(x) - dist(y))[0]
   if (!r) return null
+  const achouNumero = temNumero(r)
   return {
     lat: r.lat,
     lng: r.lon,
-    achouNumero: !!comNumero,
-    rotulo: [comNumero ? `${r.street}, ${r.housenumber}` : r.street || r.name, r.suburb, r.city].filter(Boolean).join(' · '),
+    achouNumero,
+    noBairro: doBairro(r),
+    bairro: r.suburb || r.district || r.quarter || r.neighbourhood || '',
+    cep: digitos(r.postcode).length === 8 ? digitos(r.postcode) : '',
+    rotulo: [achouNumero ? `${r.street}, ${r.housenumber}` : r.street || r.name, r.suburb || r.district, r.city].filter(Boolean).join(' · '),
   }
+}
+
+/** Ponto do bairro (sem achar a rua): `{ lat, lng, rotulo, bairro, cep }` ou null. */
+export async function buscarBairro(bairro, { cidade = '', uf = '', perto = null, raioKm = 8 } = {}) {
+  const b0 = norm(bairro)
+  if (!GEOAPIFY_KEY || b0.length < 3) return null
+  const raio = perto?.lat != null ? { filter: `circle:${perto.lng},${perto.lat},${Math.round(raioKm * 1000)}`, bias: `proximity:${perto.lng},${perto.lat}` } : { filter: 'countrycode:br' }
+  const lista = await chamar('search', { ...raio, limit: '10', text: [bairro, cidade, uf].filter(Boolean).join(', ') })
+  const nomes = (x) => [x.suburb, x.district, x.quarter, x.neighbourhood, x.name].map(norm).filter(Boolean)
+  const ok = (x) => Number.isFinite(x.lat) && Number.isFinite(x.lon) && nomes(x).some((n) => n === b0 || n.startsWith(b0 + ' '))
+  const r = lista.find((x) => ok(x) && ['suburb', 'district', 'neighbourhood', 'quarter'].includes(x.result_type)) || lista.find(ok)
+  if (!r) return null
+  const nome = r.suburb || r.district || r.name || bairro
+  return { lat: r.lat, lng: r.lon, bairro: nome, cep: '', achouNumero: false, rotulo: [nome, r.city].filter(Boolean).join(' · ') }
 }
 
 /** Distância de moto pelas ruas, em km (1 casa), ou null se não deu. */

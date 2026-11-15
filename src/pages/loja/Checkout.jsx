@@ -4,7 +4,7 @@ import { IconeVoltar } from '../../components/Icones.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, parseBRL } from '../../lib/format.js'
 import { FORMAS_PAGAMENTO, esgotado } from '../../lib/precos.js'
-import { ganhaEntregaGratis, linhasHorarioEntrega, mascaraCep, minimoEntregaGratis, soDigitos } from '../../lib/entrega.js'
+import { ganhaEntregaGratis, linhasHorarioEntrega, minimoEntregaGratis } from '../../lib/entrega.js'
 import { itemDoProduto, useCarrinho } from '../../hooks/useCarrinho.jsx'
 import { useLoja } from '../../hooks/useLoja.jsx'
 
@@ -65,59 +65,34 @@ export default function Checkout() {
     if (config && entregaIndisponivel && form.tipo_entrega === 'entrega') setForm((f) => ({ ...f, tipo_entrega: 'retirada' }))
   }, [config, entregaIndisponivel, form.tipo_entrega])
 
-  // CEP completo: busca o endereço e o valor da entrega
-  const [cotacao, setCotacao] = useState(null) // null | { carregando } | resposta de cotarEntrega
-  const cepDigitos = soDigitos(form.cep)
+  // entrega pela distância: calcula pelo endereço exato (rua, número e bairro), sem CEP
+  const [cotacao, setCotacao] = useState(null) // null | { carregando } | resposta de cotarEntrega (+ chave)
+  const enderecoPronto = /[a-zà-ú]{3}/i.test(form.endereco) && form.endereco.trim().length >= 5 && form.bairro.trim().length >= 3
+  const chaveEndereco = `${form.endereco.trim().replace(/\s+/g, ' ').toLowerCase()}|${form.bairro.trim().replace(/\s+/g, ' ').toLowerCase()}`
+  const calcularPelaDistancia = modoDistancia && form.tipo_entrega === 'entrega'
+  const cotacoes = useRef(new Map()) // chave → promessa (não repete a mesma busca)
+  const cotar = (chave, endereco, bairro) => {
+    if (!cotacoes.current.has(chave)) {
+      cotacoes.current.set(chave, api.cotarEntrega({ endereco, bairro })
+        .then((r) => ({ ...r, chave }))
+        .catch((e) => ({ ok: false, erro: e.message, chave })))
+    }
+    return cotacoes.current.get(chave)
+  }
   useEffect(() => {
-    if (!modoDistancia || form.tipo_entrega !== 'entrega' || cepDigitos.length !== 8) {
+    if (!calcularPelaDistancia || !enderecoPronto) {
       setCotacao(null)
       return
     }
-    let ativo = true
-    setCotacao({ carregando: true })
-    const t = setTimeout(() => {
-      api.cotarEntrega(cepDigitos)
-        .then((r) => {
-          if (!ativo) return
-          setCotacao(r)
-          if (r?.logradouro || r?.bairro) {
-            setForm((f) => ({
-              ...f,
-              endereco: f.endereco.trim() ? f.endereco : (r.logradouro ? `${r.logradouro}, ` : ''),
-              bairro: f.bairro.trim() && f.cepDoBairro === cepDigitos ? f.bairro : (r.bairro || f.bairro),
-              cepDoBairro: cepDigitos,
-            }))
-          }
-        })
-        .catch((e) => ativo && setCotacao({ ok: false, erro: e.message }))
-    }, 300)
-    return () => { ativo = false; clearTimeout(t) }
-  }, [modoDistancia, form.tipo_entrega, cepDigitos])
-
-  // número da casa digitado no endereço: refaz a distância até o número (rua comprida = CEP longe do número)
-  const numeroCasa = (form.endereco.match(/\d+/) || [''])[0]
-  const precisaRefinar = modoDistancia && form.tipo_entrega === 'entrega' && !!cotacao?.ok && !!numeroCasa && cotacao.numero !== numeroCasa
-  const refino = useRef(null) // { chave, promessa }
-  const refinar = (cep, numero) => {
-    const chave = `${cep}|${numero}`
-    if (refino.current?.chave !== chave) {
-      refino.current = { chave, promessa: api.cotarEntrega(cep, { numero }).then((r) => (r?.ok ? { ...r, numero } : null)).catch(() => null) }
-    }
-    return refino.current.promessa
-  }
-  useEffect(() => {
-    if (!precisaRefinar) return
+    if (cotacao?.chave === chaveEndereco) return
     let ativo = true
     const t = setTimeout(() => {
-      refinar(cepDigitos, numeroCasa).then((r) => {
-        if (!ativo) return
-        // sem achar o número: fica a cotação do CEP (marcada para não tentar de novo)
-        setCotacao((c) => (r && soDigitos(r.cep) === cepDigitos ? r : c?.ok ? { ...c, numero: numeroCasa } : c))
-      })
-    }, 800)
+      setCotacao((c) => (c?.ok ? { ...c, atualizando: true } : { carregando: true }))
+      cotar(chaveEndereco, form.endereco.trim(), form.bairro.trim()).then((r) => ativo && setCotacao(r))
+    }, 900)
     return () => { ativo = false; clearTimeout(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [precisaRefinar, cepDigitos, numeroCasa])
+  }, [calcularPelaDistancia, enderecoPronto, chaveEndereco])
 
   // só os dígitos, e só quando o número está completo: o cupom pode ter limite por cliente
   const digitosTel = form.cliente_telefone.replace(/\D/g, '')
@@ -138,7 +113,7 @@ export default function Checkout() {
   const campo = (chave) => (e) => setForm((f) => ({ ...f, [chave]: e.target.value }))
   const listaBairros = bairros || []
   const bairro = listaBairros.find((b) => String(b.id) === String(form.bairro_id))
-  const freteOk = !!cotacao?.ok
+  const freteOk = !!cotacao?.ok && !cotacao.carregando
   const freteCombinar = modoDistancia && freteOk && cotacao.a_combinar
   const desconto = cupom?.desconto || 0
   const taxaNormal = form.tipo_entrega !== 'entrega' ? 0
@@ -169,22 +144,23 @@ export default function Checkout() {
     e.preventDefault()
     setErro('')
     if (form.tipo_entrega === 'entrega' && !modoDistancia && !bairro) return setErro('Escolha o bairro de entrega.')
-    if (form.tipo_entrega === 'entrega' && modoDistancia && !freteOk) return setErro(cotacao?.erro || 'Informe o CEP da entrega.')
+    if (calcularPelaDistancia && !enderecoPronto) return setErro('Digite a rua com o número e o bairro para calcular a entrega.')
     const troco = form.forma_pagamento === 'dinheiro' && form.troco_para ? parseBRL(form.troco_para) : null
     if (troco !== null && troco < total) return setErro('O valor para troco precisa ser maior que o total.')
 
-    // a cliente enviou antes de a distância até o número ser recalculada: recalcula agora
+    // entrega ainda sendo calculada (ou endereço mudou): calcula agora e, se o valor mudou, pede para conferir
     let cot = cotacao
-    if (precisaRefinar) {
+    if (calcularPelaDistancia && cotacao?.chave !== chaveEndereco) {
       setEnviando(true)
-      const r = await refinar(cepDigitos, numeroCasa)
+      cot = await cotar(chaveEndereco, form.endereco.trim(), form.bairro.trim())
       setEnviando(false)
-      cot = r || { ...cotacao, numero: numeroCasa }
       setCotacao(cot)
-      if (r && (Number(r.taxa) !== Number(cotacao.taxa) || !!r.a_combinar !== !!cotacao.a_combinar)) {
-        return setErro('O valor da entrega foi atualizado para o número do seu endereço. Confira o total e toque em enviar de novo.')
+      const viu = cotacao?.ok && !cotacao.carregando ? cotacao : null
+      if (cot.ok && (!viu || Number(cot.taxa) !== Number(viu.taxa) || !!cot.a_combinar !== !!viu.a_combinar)) {
+        return setErro('O valor da entrega foi calculado para o seu endereço. Confira o total e toque em enviar de novo.')
       }
     }
+    if (calcularPelaDistancia && !cot?.ok) return setErro(cot?.erro || 'Não conseguimos calcular a entrega. Confira o endereço.')
 
     setEnviando(true)
     try {
@@ -192,8 +168,8 @@ export default function Checkout() {
         ...form,
         troco_para: troco,
         cupom: cupom?.codigo || '',
-        // localização do CEP (o banco recalcula a taxa com ela)
-        ...(modoDistancia && form.tipo_entrega === 'entrega' ? { lat: cot?.lat ?? null, lng: cot?.lng ?? null, km_rota: cot?.km_rota ?? null } : {}),
+        // ponto do endereço (o banco recalcula a taxa com ele); CEP não é mais pedido
+        ...(calcularPelaDistancia ? { cep: '', lat: cot?.lat ?? null, lng: cot?.lng ?? null, km_rota: cot?.km_rota ?? null, aproximado: !!cot?.aproximado } : {}),
         itens: itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
       })
       const { forma_pagamento, troco_para, observacao, cepDoBairro, ...dadosCliente } = form
@@ -268,54 +244,55 @@ export default function Checkout() {
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {modoDistancia ? (
                   <>
-                    <label>
-                      <span className="rotulo">CEP</span>
-                      <input
-                        required
-                        inputMode="numeric"
-                        autoComplete="postal-code"
-                        value={form.cep}
-                        onChange={(e) => setForm((f) => ({ ...f, cep: mascaraCep(e.target.value) }))}
-                        className="campo tnum"
-                        placeholder="00000-000"
-                      />
-                      <a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noreferrer" className="mt-1 block text-xs text-magenta/45 underline">
-                        Não sei meu CEP
-                      </a>
+                    <label className="sm:col-span-2">
+                      <span className="rotulo">Endereço (rua e número)</span>
+                      <input required autoComplete="street-address" value={form.endereco} onChange={campo('endereco')} className="campo" placeholder="Ex.: Rua Luminosa, 2073" />
                     </label>
-                    <label>
+                    <label className="sm:col-span-2">
                       <span className="rotulo">Bairro</span>
                       <input required value={form.bairro} onChange={campo('bairro')} className="campo" placeholder="Seu bairro" />
                     </label>
-                    {cotacao && (
-                      <div className={`sm:col-span-2 rounded-2xl px-4 py-3 text-sm ${cotacao.carregando ? 'bg-cream text-magenta/60' : freteCombinar ? 'bg-ambar-bg text-ambar' : freteOk ? 'bg-verde-bg text-verde' : 'bg-vermelho-bg/60 text-vermelho'}`} role="status">
-                        {cotacao.carregando ? 'Calculando a entrega…'
+                    <div
+                      className={`sm:col-span-2 rounded-2xl px-4 py-3 text-sm ${!cotacao || cotacao.carregando ? 'bg-cream text-magenta/60' : freteCombinar ? 'bg-ambar-bg text-ambar' : freteOk ? 'bg-verde-bg text-verde' : 'bg-vermelho-bg/60 text-vermelho'}`}
+                      role="status"
+                    >
+                      {!cotacao ? 'Digite a rua com o número e o bairro para calcular a entrega.'
+                        : cotacao.carregando ? 'Calculando a entrega…'
                           : !freteOk ? cotacao.erro
-                            : freteCombinar ? (cotacao.km == null
-                              ? <>Não conseguimos calcular a distância agora. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido e não entra no total abaixo.</>
-                              : <>Seu endereço fica fora da área de entrega padrão. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido (entrega por aplicativo) e não entra no total abaixo.</>)
-                              : gratisPorValor && taxaNormal > 0
-                                ? <>Entrega: <s className="opacity-60">{formatBRL(taxaNormal)}</s> <strong>grátis</strong> 🎉</>
-                                : <>Entrega: <strong>{taxa > 0 ? formatBRL(taxa) : 'grátis'}</strong></>}
-                      </div>
-                    )}
+                            : <>
+                                {cotacao.rotulo && (
+                                  <span className="mb-0.5 block text-xs opacity-80">
+                                    📍 {cotacao.rotulo}{cotacao.aproximado ? ' (localização aproximada)' : ''}
+                                  </span>
+                                )}
+                                {freteCombinar ? (cotacao.km == null
+                                  ? <>Não encontramos esse endereço no mapa. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido e não entra no total abaixo.</>
+                                  : <>Seu endereço fica fora da área de entrega padrão. O frete é <strong>combinado pelo WhatsApp</strong> depois do pedido (entrega por aplicativo) e não entra no total abaixo.</>)
+                                  : gratisPorValor && taxaNormal > 0
+                                    ? <>Entrega: <s className="opacity-60">{formatBRL(taxaNormal)}</s> <strong>grátis</strong> 🎉</>
+                                    : <>Entrega: <strong>{taxa > 0 ? formatBRL(taxa) : 'grátis'}</strong></>}
+                                {cotacao.atualizando && <span className="ml-1 text-xs opacity-70">atualizando…</span>}
+                              </>}
+                    </div>
                   </>
                 ) : (
-                  <label className="sm:col-span-2">
-                    <span className="rotulo">Bairro</span>
-                    <select required value={form.bairro_id} onChange={campo('bairro_id')} className="campo">
-                      <option value="">Escolha o bairro…</option>
-                      {listaBairros.map((b) => (
-                        <option key={b.id} value={b.id}>{b.nome} — {Number(b.taxa) > 0 ? formatBRL(b.taxa) : 'grátis'}</option>
-                      ))}
-                    </select>
-                    <span className="mt-1 block text-xs text-magenta/45">Não achou seu bairro? Chame a loja no WhatsApp.</span>
-                  </label>
+                  <>
+                    <label className="sm:col-span-2">
+                      <span className="rotulo">Bairro</span>
+                      <select required value={form.bairro_id} onChange={campo('bairro_id')} className="campo">
+                        <option value="">Escolha o bairro…</option>
+                        {listaBairros.map((b) => (
+                          <option key={b.id} value={b.id}>{b.nome} — {Number(b.taxa) > 0 ? formatBRL(b.taxa) : 'grátis'}</option>
+                        ))}
+                      </select>
+                      <span className="mt-1 block text-xs text-magenta/45">Não achou seu bairro? Chame a loja no WhatsApp.</span>
+                    </label>
+                    <label className="sm:col-span-2">
+                      <span className="rotulo">Endereço (rua, número)</span>
+                      <input required autoComplete="street-address" value={form.endereco} onChange={campo('endereco')} className="campo" placeholder="Rua, quadra, número" />
+                    </label>
+                  </>
                 )}
-                <label className="sm:col-span-2">
-                  <span className="rotulo">Endereço (rua, número)</span>
-                  <input required autoComplete="street-address" value={form.endereco} onChange={campo('endereco')} className="campo" placeholder="Rua, quadra, número" />
-                </label>
                 <label>
                   <span className="rotulo">Complemento</span>
                   <input value={form.complemento} onChange={campo('complemento')} className="campo" placeholder="Apto, bloco…" />

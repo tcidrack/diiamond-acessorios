@@ -29,7 +29,7 @@ Abra http://localhost:5173 (loja) e http://localhost:5173/admin (painel: qualque
    select id from auth.users where email in ('EMAIL_DA_LOJA', 'EMAIL_DA_DONA')
    on conflict do nothing;
    ```
-   Rode também `0002_ia_modo_teste.sql`, `0003_gemini_respostas_prontas.sql`, `0004_pix_informado.sql`, `0005_cartao_online.sql`, `0006_cupom_por_cliente.sql`, `0007_aviso_ultimas.sql`, `0008_cores_produto.sql`, `0009_entrega_distancia.sql`, `0010_entrega_local_cliente.sql`, `0011_entrega_rota.sql`, `0012_banners_horario_frete_gratis.sql` e `0013_entrega_gratis_km.sql`.
+   Rode também `0002_ia_modo_teste.sql`, `0003_gemini_respostas_prontas.sql`, `0004_pix_informado.sql`, `0005_cartao_online.sql`, `0006_cupom_por_cliente.sql`, `0007_aviso_ultimas.sql`, `0008_cores_produto.sql`, `0009_entrega_distancia.sql`, `0010_entrega_local_cliente.sql`, `0011_entrega_rota.sql`, `0012_banners_horario_frete_gratis.sql`, `0013_entrega_gratis_km.sql` e `0014_entrega_sem_cep.sql`.
 6. **Project Settings → API**: copie a *Project URL* e a chave *anon public*.
 
 ### 2. Site (Vercel)

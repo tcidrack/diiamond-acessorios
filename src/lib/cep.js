@@ -1,4 +1,4 @@
-import { buscarEndereco, geocodificarGeoapify } from './geoapify.js'
+import { buscarBairro, buscarEndereco, geocodificarGeoapify } from './geoapify.js'
 import { haversine } from './entrega.js'
 
 /**
@@ -75,4 +75,25 @@ export async function localDaEntrega(cep, numero) {
     return { ...end, lat: achado.lat, lng: achado.lng, fonte: 'numero', numero: n }
   }
   return { ...end, numero: n }
+}
+
+/**
+ * Checkout sem CEP: rua e número + bairro digitados → ponto no mapa, procurado em volta da loja.
+ * `{ lat, lng, rotulo, achouNumero, aproximado }`; sem achar nada, lat/lng null (frete a combinar).
+ * (O CEP do mapa não é usado: o OpenStreetMap erra muito o CEP.)
+ */
+export async function localPorEndereco({ endereco, bairro }, cfg) {
+  const loja = { lat: Number(cfg?.origem_lat), lng: Number(cfg?.origem_lng) }
+  const origem = cfg?.origem_cep ? await buscarCep(cfg.origem_cep).catch(() => null) : null
+  const raioKm = Math.min(40, Math.max(8, Number(cfg?.entrega_max_km) || 10) + 3)
+  const opcoes = { cidade: origem?.cidade || '', uf: origem?.uf || '', perto: loja, raioKm, bairro }
+  const [rua, doBairro] = await Promise.all([buscarEndereco(endereco, opcoes), buscarBairro(bairro, opcoes)])
+  const nada = { lat: null, lng: null, rotulo: '', achouNumero: false, aproximado: true }
+  if (rua) {
+    // rua de mesmo nome em outro lugar ("Rua 101" de outro conjunto): longe do bairro digitado → usa o bairro
+    const longeDoBairro = !rua.noBairro && doBairro && haversine(rua.lat, rua.lng, doBairro.lat, doBairro.lng) > 3
+    if (!longeDoBairro) return { lat: rua.lat, lng: rua.lng, rotulo: rua.rotulo, achouNumero: rua.achouNumero, aproximado: !rua.achouNumero }
+  }
+  if (doBairro) return { ...nada, lat: doBairro.lat, lng: doBairro.lng, rotulo: doBairro.rotulo }
+  return nada
 }
