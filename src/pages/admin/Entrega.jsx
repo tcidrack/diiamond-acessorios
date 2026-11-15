@@ -300,7 +300,7 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
           <input inputMode="decimal" value={cfg.entrega_fator_rota} onChange={set('entrega_fator_rota')} className="campo tnum w-28" />
         </Campo>
         <p className="rounded-2xl bg-cream px-4 py-3 text-xs text-magenta/70">
-          Regra: {regras.entrega_gratis_km > 0 && <>até {formatKm(regras.entrega_gratis_km)} = <strong>grátis</strong>; </>}até {cfg.entrega_raio_km} km = {formatBRL(regras.entrega_taxa_base || 0)}. Acima: {formatBRL(regras.entrega_taxa_base || 0)} + {formatBRL(regras.entrega_valor_km || 0)} por km
+          Regra: {regras.entrega_gratis_km > 0 && <>até {formatKm(regras.entrega_gratis_km)} = <strong>grátis</strong>; </>}até {cfg.entrega_raio_km} km = {formatBRL(regras.entrega_taxa_base || 0)}. Acima de {cfg.entrega_raio_km} km: {formatBRL(regras.entrega_taxa_base || 0)} + {formatBRL(regras.entrega_valor_km || 0)} por km a mais
           (km arredondado para cima). Acima de {cfg.entrega_max_km} km o pedido é feito com o frete a combinar pelo WhatsApp.
         </p>
         <Erro>{erro}</Erro>

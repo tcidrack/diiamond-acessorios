@@ -26,7 +26,7 @@ export function taxaPorKm(km, cfg) {
   const r = regrasEntrega(cfg)
   if (km > r.entrega_max_km) return { km, taxa: 0, a_combinar: true }
   if (r.entrega_gratis_km > 0 && km <= r.entrega_gratis_km) return { km, taxa: 0, a_combinar: false, gratis_km: true }
-  const taxa = km <= r.entrega_raio_km ? r.entrega_taxa_base : r.entrega_taxa_base + r.entrega_valor_km * Math.ceil(km)
+  const taxa = km <= r.entrega_raio_km ? r.entrega_taxa_base : r.entrega_taxa_base + r.entrega_valor_km * Math.ceil(Math.round((km - r.entrega_raio_km) * 100) / 100) // só o km que passou da faixa
   return { km, taxa: Math.round(taxa * 100) / 100, a_combinar: false }
 }
 
