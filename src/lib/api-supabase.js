@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js'
-import { buscarCep } from './cep.js'
+import { localDaEntrega } from './cep.js'
 import { rotaKm } from './geoapify.js'
 
 /**
@@ -70,8 +70,8 @@ export const apiSupabase = {
   },
 
   /** Entrega por distância: o celular busca o CEP e o banco calcula a taxa (o pedido recalcula de novo). */
-  async cotarEntrega(cep) {
-    const end = await buscarCep(cep)
+  async cotarEntrega(cep, { numero } = {}) {
+    const end = await localDaEntrega(cep, numero)
     if (!end) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
     // distância de moto pelas ruas (o banco só aceita se for plausível)
     let kmRota = null

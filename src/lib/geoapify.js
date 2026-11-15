@@ -76,23 +76,32 @@ export async function geocodificarGeoapify(end) {
  */
 export async function buscarEndereco(texto, { cidade = '', uf = '', perto = null } = {}) {
   if (!GEOAPIFY_KEY) return null
-  const [ruaTexto, resto = ''] = String(texto || '').split(',').map((s) => s.trim())
-  const numero = (resto.match(/\d+/) || String(texto).match(/\b\d{1,5}\b/) || [''])[0]
-  const rua = norm(ruaTexto.replace(/\d+/g, ''))
+  // separa rua e número da casa SEM apagar números do nome da rua ("Rua 339, 67" → "Rua 339" + "67")
+  let [ruaTexto, resto = ''] = String(texto || '').split(',').map((s) => s.trim())
+  let numero = (resto.match(/\d+/) || [''])[0]
+  if (!resto) {
+    const m = ruaTexto.match(/^(.*\D)\s+(\d{1,5})$/) // "Rua José Abílio 804"
+    if (m) [ruaTexto, numero] = [m[1].trim(), m[2]]
+  }
+  const semPrefixo = (s) => norm(s).replace(/^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?) /, '')
+  const rua = semPrefixo(ruaTexto)
   if (!rua) return null
   const raio = perto?.lat != null ? { filter: `circle:${perto.lng},${perto.lat},8000`, bias: `proximity:${perto.lng},${perto.lat}` } : { filter: 'countrycode:br' }
   const base = { ...raio, limit: '10' }
   const [a, b] = await Promise.all([
-    chamar('search', { ...base, street: ruaTexto.replace(/\d+/g, '').trim(), housenumber: numero, city: cidade, state: uf }),
-    chamar('search', { ...base, text: [texto, cidade, uf].filter(Boolean).join(', ') }),
+    chamar('search', { ...base, street: ruaTexto, housenumber: numero, city: cidade, state: uf }),
+    chamar('search', { ...base, text: [ruaTexto, numero, cidade, uf].filter(Boolean).join(', ') }),
   ])
-  const mesmaRua = (x) => Number.isFinite(x.lat) && Number.isFinite(x.lon) && norm(x.street || x.name).includes(rua.replace(/^(rua|avenida|av\.?|travessa|tv\.?) /, ''))
+  // mesma rua = nome igual (sem "Rua"/"Av."), não "contém": "Rua 339" não pode casar com "Rua 1339"
+  const mesmaRua = (x) => Number.isFinite(x.lat) && Number.isFinite(x.lon) && semPrefixo(x.street || x.name) === rua
   let todos = [...a, ...b].filter(mesmaRua)
   // número desconhecido no mapa: procura só a rua (a dona arrasta o pino até a porta)
   if (!todos.length && numero) {
-    todos = (await chamar('search', { ...base, street: ruaTexto.replace(/\d+/g, '').trim(), city: cidade, state: uf })).filter(mesmaRua)
+    todos = (await chamar('search', { ...base, street: ruaTexto, city: cidade, state: uf })).filter(mesmaRua)
   }
-  const comNumero = numero && todos.find((x) => String(x.housenumber || '') === numero)
+  // número "achado" com pouca confiança = a Geoapify inventou (ex.: nº 99999): não serve
+  const confiavel = (x) => (x.rank?.confidence ?? 1) >= 0.9
+  const comNumero = numero && todos.find((x) => String(x.housenumber || '') === numero && confiavel(x))
   const r = comNumero || todos[0]
   if (!r) return null
   return {

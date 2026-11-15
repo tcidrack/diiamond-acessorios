@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconeVoltar } from '../../components/Icones.jsx'
 import { api } from '../../lib/api.js'
@@ -94,6 +94,31 @@ export default function Checkout() {
     return () => { ativo = false; clearTimeout(t) }
   }, [modoDistancia, form.tipo_entrega, cepDigitos])
 
+  // número da casa digitado no endereço: refaz a distância até o número (rua comprida = CEP longe do número)
+  const numeroCasa = (form.endereco.match(/\d+/) || [''])[0]
+  const precisaRefinar = modoDistancia && form.tipo_entrega === 'entrega' && !!cotacao?.ok && !!numeroCasa && cotacao.numero !== numeroCasa
+  const refino = useRef(null) // { chave, promessa }
+  const refinar = (cep, numero) => {
+    const chave = `${cep}|${numero}`
+    if (refino.current?.chave !== chave) {
+      refino.current = { chave, promessa: api.cotarEntrega(cep, { numero }).then((r) => (r?.ok ? { ...r, numero } : null)).catch(() => null) }
+    }
+    return refino.current.promessa
+  }
+  useEffect(() => {
+    if (!precisaRefinar) return
+    let ativo = true
+    const t = setTimeout(() => {
+      refinar(cepDigitos, numeroCasa).then((r) => {
+        if (!ativo) return
+        // sem achar o número: fica a cotação do CEP (marcada para não tentar de novo)
+        setCotacao((c) => (r && soDigitos(r.cep) === cepDigitos ? r : c?.ok ? { ...c, numero: numeroCasa } : c))
+      })
+    }, 800)
+    return () => { ativo = false; clearTimeout(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [precisaRefinar, cepDigitos, numeroCasa])
+
   // só os dígitos, e só quando o número está completo: o cupom pode ter limite por cliente
   const digitosTel = form.cliente_telefone.replace(/\D/g, '')
   const telCupom = digitosTel.length >= 10 ? digitosTel : ''
@@ -148,6 +173,19 @@ export default function Checkout() {
     const troco = form.forma_pagamento === 'dinheiro' && form.troco_para ? parseBRL(form.troco_para) : null
     if (troco !== null && troco < total) return setErro('O valor para troco precisa ser maior que o total.')
 
+    // a cliente enviou antes de a distância até o número ser recalculada: recalcula agora
+    let cot = cotacao
+    if (precisaRefinar) {
+      setEnviando(true)
+      const r = await refinar(cepDigitos, numeroCasa)
+      setEnviando(false)
+      cot = r || { ...cotacao, numero: numeroCasa }
+      setCotacao(cot)
+      if (r && (Number(r.taxa) !== Number(cotacao.taxa) || !!r.a_combinar !== !!cotacao.a_combinar)) {
+        return setErro('O valor da entrega foi atualizado para o número do seu endereço. Confira o total e toque em enviar de novo.')
+      }
+    }
+
     setEnviando(true)
     try {
       const r = await api.criarPedido({
@@ -155,7 +193,7 @@ export default function Checkout() {
         troco_para: troco,
         cupom: cupom?.codigo || '',
         // localização do CEP (o banco recalcula a taxa com ela)
-        ...(modoDistancia && form.tipo_entrega === 'entrega' ? { lat: cotacao?.lat ?? null, lng: cotacao?.lng ?? null, km_rota: cotacao?.km_rota ?? null } : {}),
+        ...(modoDistancia && form.tipo_entrega === 'entrega' ? { lat: cot?.lat ?? null, lng: cot?.lng ?? null, km_rota: cot?.km_rota ?? null } : {}),
         itens: itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
       })
       const { forma_pagamento, troco_para, observacao, cepDoBairro, ...dadosCliente } = form

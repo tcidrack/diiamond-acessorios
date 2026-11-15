@@ -1,4 +1,5 @@
-import { geocodificarGeoapify } from './geoapify.js'
+import { buscarEndereco, geocodificarGeoapify } from './geoapify.js'
+import { haversine } from './entrega.js'
 
 /**
  * Busca o endereço e a localização de um CEP direto do navegador.
@@ -58,4 +59,20 @@ export async function buscarCep(cep) {
   const r = { ...end, ...(await conferirPonto(end)) }
   cache.set(c, r)
   return r
+}
+
+/**
+ * Ponto da entrega: o do CEP, refinado pelo NÚMERO da casa quando dá (rua comprida: o ponto do CEP pode ficar
+ * longe do número). Só aceita o número achado na mesma rua e a até 3 km do ponto do CEP.
+ */
+export async function localDaEntrega(cep, numero) {
+  const end = await buscarCep(cep)
+  if (!end) return null
+  const n = String(numero || '').replace(/\D/g, '')
+  if (!n || end.lat == null || !end.logradouro) return end
+  const achado = await buscarEndereco(`${end.logradouro}, ${n}`, { cidade: end.cidade, uf: end.uf, perto: end })
+  if (achado?.achouNumero && haversine(end.lat, end.lng, achado.lat, achado.lng) <= 3) {
+    return { ...end, lat: achado.lat, lng: achado.lng, fonte: 'numero', numero: n }
+  }
+  return { ...end, numero: n }
 }

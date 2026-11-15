@@ -1,6 +1,6 @@
 import { precoFinal } from './precos.js'
 import { calcularFrete, ganhaEntregaGratis } from './entrega.js'
-import { buscarCep } from './cep.js'
+import { localDaEntrega } from './cep.js'
 import { rotaKm } from './geoapify.js'
 import { encontrarRespostaPronta } from './respostas-prontas.js'
 
@@ -218,9 +218,9 @@ export const apiDemo = {
   },
 
   // Demonstração: consulta o CEP direto do navegador e guarda no localStorage
-  async cotarEntrega(cep) {
+  async cotarEntrega(cep, { numero } = {}) {
     if (String(cep || '').replace(/\D/g, '').length !== 8) return { ok: false, erro: 'Informe um CEP válido.' }
-    const end = await buscarCep(cep)
+    const end = await localDaEntrega(cep, numero)
     if (!end) return { ok: false, erro: 'Não encontramos esse CEP. Confira e tente de novo.' }
     const cfg = carregar().config_loja
     const kmRota = end.lat != null && cfg.origem_lat != null ? await rotaKm({ lat: cfg.origem_lat, lng: cfg.origem_lng }, end) : null
