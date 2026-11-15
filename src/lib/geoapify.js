@@ -69,6 +69,33 @@ export async function geocodificarGeoapify(end) {
   return null
 }
 
+const TIPO_RUA = /^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?|estrada|rodovia)$/i
+const SEPARADORES_FIM = /[\s,;/\-–—]+$/
+
+/**
+ * Separa rua e número da casa SEM apagar números do nome da rua. Aceita qualquer separação:
+ * "Rua das Flores, 123", "Rua das Flores 123", "Rua das Flores - 123", "Rua das Flores nº 123",
+ * "Rua das Flores 123 casa B" (o que vem depois do número é ignorado), "Rua 10 45" → "Rua 10" + 45,
+ * "Rua 7 de Setembro 100" → "Rua 7 de Setembro" + 100; "Rua 10" sozinha é só a rua.
+ */
+export function separarRuaNumero(texto) {
+  const t = String(texto || '').replace(/\s+/g, ' ').trim()
+  const limpar = (s) => s.replace(SEPARADORES_FIM, '').replace(/\s+n[º°o]?\.?$/i, '').replace(SEPARADORES_FIM, '').trim()
+  // com vírgula: o número é o primeiro depois da primeira vírgula ("Rua 339, 67")
+  const virgula = t.indexOf(',')
+  if (virgula > 0) {
+    const rua = limpar(t.slice(0, virgula))
+    const numero = (t.slice(virgula + 1).match(/\d{1,5}/) || [''])[0]
+    if (rua && !TIPO_RUA.test(rua)) return { rua, numero }
+  }
+  // sem vírgula: o primeiro número cuja parte da frente já é um nome de rua (não só "Rua")
+  for (const m of t.matchAll(/(?:\s*[;/\-–—]\s*|\s+)(?:n[º°o]?\.?\s*)?(\d{1,5})(?!\d)/gi)) {
+    const rua = limpar(t.slice(0, m.index))
+    if (rua && !TIPO_RUA.test(rua) && /[a-zà-ú]/i.test(rua)) return { rua, numero: m[1] }
+  }
+  return { rua: limpar(t), numero: '' }
+}
+
 /**
  * Endereço digitado (ex.: "Rua José Abílio, 804") → `{ lat, lng, rotulo, achouNumero, bairro, cep }` ou null.
  * Só aceita a rua digitada (a Geoapify às vezes devolve o mesmo número em outra rua) e procura num raio
@@ -77,16 +104,7 @@ export async function geocodificarGeoapify(end) {
  */
 export async function buscarEndereco(texto, { cidade = '', uf = '', perto = null, raioKm = 8, bairro = '' } = {}) {
   if (!GEOAPIFY_KEY) return null
-  // separa rua e número da casa SEM apagar números do nome da rua ("Rua 339, 67" → "Rua 339" + "67")
-  let [ruaTexto, resto = ''] = String(texto || '').split(',').map((s) => s.trim())
-  let numero = (resto.match(/\d+/) || [''])[0]
-  if (!resto) {
-    // "Rua das Flores 123", "Rua das Flores nº 123", "Rua 10 45" (mas "Rua 10" sozinha é só a rua)
-    const m = ruaTexto.match(/^(.*?)\s+(?:n[º°o]?\.?\s*)?(\d{1,5})$/i)
-    if (m && !/^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?)$/i.test(m[1].trim())) [ruaTexto, numero] = [m[1].trim(), m[2]]
-  } else {
-    ruaTexto = ruaTexto.replace(/\s+n[º°o]?\.?$/i, '') // "Rua X nº, 10"
-  }
+  const { rua: ruaTexto, numero } = separarRuaNumero(texto)
   const semPrefixo = (s) => norm(s).replace(/^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?) /, '')
   const rua = semPrefixo(ruaTexto)
   if (!rua) return null
