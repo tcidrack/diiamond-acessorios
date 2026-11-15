@@ -1,4 +1,4 @@
-import { buscarBairro, buscarEndereco, geocodificarGeoapify } from './geoapify.js'
+import { bairrosDaRua, buscarBairro, buscarEndereco, geocodificarGeoapify } from './geoapify.js'
 import { haversine } from './entrega.js'
 
 /**
@@ -82,11 +82,24 @@ export async function localDaEntrega(cep, numero) {
  * `{ lat, lng, rotulo, achouNumero, aproximado }`; sem achar nada, lat/lng null (frete a combinar).
  * (O CEP do mapa não é usado: o OpenStreetMap erra muito o CEP.)
  */
-export async function localPorEndereco({ endereco, bairro }, cfg) {
-  const loja = { lat: Number(cfg?.origem_lat), lng: Number(cfg?.origem_lng) }
+/** Onde procurar endereços de clientes: em volta da loja, na cidade/UF do CEP de origem. */
+async function opcoesDaLoja(cfg) {
   const origem = cfg?.origem_cep ? await buscarCep(cfg.origem_cep).catch(() => null) : null
-  const raioKm = Math.min(40, Math.max(8, Number(cfg?.entrega_max_km) || 10) + 3)
-  const opcoes = { cidade: origem?.cidade || '', uf: origem?.uf || '', perto: loja, raioKm, bairro }
+  return {
+    cidade: origem?.cidade || '',
+    uf: origem?.uf || '',
+    perto: { lat: Number(cfg?.origem_lat), lng: Number(cfg?.origem_lng) },
+    raioKm: Math.min(40, Math.max(8, Number(cfg?.entrega_max_km) || 10) + 3),
+  }
+}
+
+/** Bairros possíveis para a rua digitada (para a cliente escolher o dela). */
+export async function sugerirBairros(endereco, cfg) {
+  return bairrosDaRua(endereco, await opcoesDaLoja(cfg))
+}
+
+export async function localPorEndereco({ endereco, bairro }, cfg) {
+  const opcoes = { ...(await opcoesDaLoja(cfg)), bairro }
   const [rua, doBairro] = await Promise.all([buscarEndereco(endereco, opcoes), buscarBairro(bairro, opcoes)])
   const nada = { lat: null, lng: null, rotulo: '', achouNumero: false, aproximado: true }
   if (rua) {

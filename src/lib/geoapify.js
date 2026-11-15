@@ -71,6 +71,8 @@ export async function geocodificarGeoapify(end) {
 
 const TIPO_RUA = /^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?|estrada|rodovia)$/i
 const SEPARADORES_FIM = /[\s,;/\-–—]+$/
+// nome da rua sem o tipo ("Rua", "Av."…), para comparar
+const semPrefixo = (s) => norm(s).replace(/^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?) /, '')
 
 /**
  * Separa rua e número da casa SEM apagar números do nome da rua. Aceita qualquer separação:
@@ -105,7 +107,6 @@ export function separarRuaNumero(texto) {
 export async function buscarEndereco(texto, { cidade = '', uf = '', perto = null, raioKm = 8, bairro = '' } = {}) {
   if (!GEOAPIFY_KEY) return null
   const { rua: ruaTexto, numero } = separarRuaNumero(texto)
-  const semPrefixo = (s) => norm(s).replace(/^(rua|r\.?|avenida|av\.?|travessa|tv\.?|alameda|al\.?) /, '')
   const rua = semPrefixo(ruaTexto)
   if (!rua) return null
   const raio = perto?.lat != null
@@ -157,6 +158,28 @@ export async function buscarBairro(bairro, { cidade = '', uf = '', perto = null,
   if (!r) return null
   const nome = r.suburb || r.district || r.name || bairro
   return { lat: r.lat, lng: r.lon, bairro: nome, cep: '', achouNumero: false, rotulo: [nome, r.city].filter(Boolean).join(' · ') }
+}
+
+/**
+ * Bairros onde existe a rua digitada (ex.: "Rua Luminosa" → Granja Portugal, Granja Lisboa), do mais perto
+ * de `perto` (a loja) para o mais longe. Para a cliente escolher o bairro dela.
+ */
+export async function bairrosDaRua(texto, { cidade = '', uf = '', perto = null, raioKm = 8, max = 6 } = {}) {
+  const { rua: ruaTexto } = separarRuaNumero(texto)
+  const rua = semPrefixo(ruaTexto)
+  if (!GEOAPIFY_KEY || rua.length < 2) return []
+  const raio = perto?.lat != null
+    ? { filter: `circle:${perto.lng},${perto.lat},${Math.round(raioKm * 1000)}`, bias: `proximity:${perto.lng},${perto.lat}` }
+    : { filter: 'countrycode:br' }
+  const lista = await chamar('search', { ...raio, limit: '20', street: ruaTexto, city: cidade, state: uf })
+  const dist = (x) => (perto?.lat != null ? (x.lat - perto.lat) ** 2 + (x.lon - perto.lng) ** 2 : 0)
+  const nomes = []
+  for (const x of lista.filter((x) => Number.isFinite(x.lat) && semPrefixo(x.street || x.name) === rua).sort((a, b) => dist(a) - dist(b))) {
+    const nome = String(x.suburb || x.district || x.quarter || x.neighbourhood || '').trim()
+    if (nome && !nomes.some((n) => norm(n) === norm(nome))) nomes.push(nome)
+    if (nomes.length >= max) break
+  }
+  return nomes
 }
 
 /** Distância de moto pelas ruas, em km (1 casa), ou null se não deu. */

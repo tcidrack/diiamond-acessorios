@@ -1,6 +1,6 @@
 import { precoFinal } from './precos.js'
 import { calcularFrete, ganhaEntregaGratis } from './entrega.js'
-import { localDaEntrega, localPorEndereco } from './cep.js'
+import { localDaEntrega, localPorEndereco, sugerirBairros } from './cep.js'
 import { rotaKm } from './geoapify.js'
 import { encontrarRespostaPronta } from './respostas-prontas.js'
 
@@ -218,6 +218,11 @@ export const apiDemo = {
   },
 
   // Demonstração: consulta o CEP direto do navegador e guarda no localStorage
+  async bairrosDoEndereco(endereco) {
+    const cfg = carregar().config_loja
+    return cfg.origem_lat != null ? sugerirBairros(endereco, cfg) : []
+  },
+
   async cotarEntrega(destino, { numero } = {}) {
     const porEndereco = typeof destino === 'object' && destino !== null
     if (!porEndereco && String(destino || '').replace(/\D/g, '').length !== 8) return { ok: false, erro: 'Informe um CEP válido.' }

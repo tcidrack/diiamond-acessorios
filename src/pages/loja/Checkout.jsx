@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconeVoltar } from '../../components/Icones.jsx'
+import SugestoesBairro, { useBairrosSugeridos } from '../../components/SugestoesBairro.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, parseBRL } from '../../lib/format.js'
 import { FORMAS_PAGAMENTO, esgotado } from '../../lib/precos.js'
@@ -70,6 +71,7 @@ export default function Checkout() {
   const enderecoPronto = /[a-zà-ú]{3}/i.test(form.endereco) && form.endereco.trim().length >= 5 && form.bairro.trim().length >= 3
   const chaveEndereco = `${form.endereco.trim().replace(/\s+/g, ' ').toLowerCase()}|${form.bairro.trim().replace(/\s+/g, ' ').toLowerCase()}`
   const calcularPelaDistancia = modoDistancia && form.tipo_entrega === 'entrega'
+  const bairrosSugeridos = useBairrosSugeridos(form.endereco, calcularPelaDistancia)
   const cotacoes = useRef(new Map()) // chave → promessa (não repete a mesma busca)
   const cotar = (chave, endereco, bairro) => {
     if (!cotacoes.current.has(chave)) {
@@ -252,6 +254,11 @@ export default function Checkout() {
                       <span className="rotulo">Bairro</span>
                       <input required value={form.bairro} onChange={campo('bairro')} className="campo" placeholder="Seu bairro" />
                     </label>
+                    {bairrosSugeridos.length > 0 && (
+                      <div className="sm:col-span-2 -mt-1">
+                        <SugestoesBairro opcoes={bairrosSugeridos} valor={form.bairro} onEscolher={(b) => setForm((f) => ({ ...f, bairro: b }))} />
+                      </div>
+                    )}
                     <div
                       className={`sm:col-span-2 rounded-2xl px-4 py-3 text-sm ${!cotacao || cotacao.carregando ? 'bg-cream text-magenta/60' : freteCombinar ? 'bg-ambar-bg text-ambar' : freteOk ? 'bg-verde-bg text-verde' : 'bg-vermelho-bg/60 text-vermelho'}`}
                       role="status"

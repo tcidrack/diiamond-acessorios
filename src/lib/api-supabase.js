@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js'
-import { localDaEntrega, localPorEndereco } from './cep.js'
+import { localDaEntrega, localPorEndereco, sugerirBairros } from './cep.js'
 import { rotaKm } from './geoapify.js'
 
 /**
@@ -90,6 +90,12 @@ export const apiSupabase = {
     if (r.error) r = await supabase.rpc('calcular_entrega', { p_cep: cep || cfg?.origem_cep, p_lat: end.lat, p_lng: end.lng })
     const frete = ok(r)
     return { ...end, km_rota: kmRota, ...frete }
+  },
+
+  /** Bairros onde existe a rua digitada (sugestões para a cliente). */
+  async bairrosDoEndereco(endereco) {
+    const cfg = await this.getConfig().catch(() => null)
+    return cfg?.origem_lat != null ? sugerirBairros(endereco, cfg) : []
   },
 
   async criarPedido(payload) {

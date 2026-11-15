@@ -4,6 +4,7 @@ import { Campo, Erro, Titulo, useAviso } from '../../components/admin/UI.jsx'
 import { api } from '../../lib/api.js'
 import { formatBRL, numeroParaCampo, parseBRL } from '../../lib/format.js'
 import { PADRAO_ENTREGA, formatKm, mascaraCep, soDigitos, tabelaExemplo } from '../../lib/entrega.js'
+import SugestoesBairro, { useBairrosSugeridos } from '../../components/SugestoesBairro.jsx'
 import { buscarEndereco } from '../../lib/geoapify.js'
 import MapaPino from '../../components/admin/MapaPino.jsx'
 
@@ -51,7 +52,7 @@ export default function Entrega() {
 
       <div className="mb-4 grid gap-2 sm:grid-cols-2">
         {[
-          ['distancia', 'Pela distância', 'A cliente informa o CEP e a taxa é calculada pela distância até a loja.'],
+          ['distancia', 'Pela distância', 'A cliente digita o endereço e a taxa é calculada pela distância até a loja.'],
           ['bairros', 'Por bairro (lista)', 'A cliente escolhe o bairro numa lista com taxa fixa.'],
         ].map(([modo, titulo, detalhe]) => (
           <button
@@ -164,8 +165,10 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
   const [salvando, setSalvando] = useState(false)
   const [buscando, setBuscando] = useState(false)
   const [origemAchada, setOrigemAchada] = useState('')
-  const [simCep, setSimCep] = useState('')
+  const [simEnd, setSimEnd] = useState({ endereco: '', bairro: '' })
   const [sim, setSim] = useState(null)
+  const simBairros = useBairrosSugeridos(simEnd.endereco, cfg.origem_lat != null)
+  const simPronto = /[a-zà-ú]{3}/i.test(simEnd.endereco) && simEnd.bairro.trim().length >= 3
   const [endereco, setEndereco] = useState('')
   const [buscandoEnd, setBuscandoEnd] = useState(false)
   const [achadoEnd, setAchadoEnd] = useState(null)
@@ -244,7 +247,7 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
   const simular = async () => {
     setSim({ carregando: true })
     try {
-      setSim(await api.cotarEntrega(simCep))
+      setSim(await api.cotarEntrega({ endereco: simEnd.endereco.trim(), bairro: simEnd.bairro.trim() }))
     } catch (e) {
       setSim({ ok: false, erro: e.message })
     }
@@ -309,23 +312,24 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
 
       <div className="space-y-4">
         <section className="card space-y-3 p-5">
-          <h2 className="font-display text-lg font-semibold text-magenta">Testar um CEP</h2>
-          <p className="text-xs text-magenta/55">Usa os valores já salvos. Mostra exatamente o que a cliente vai ver.</p>
+          <h2 className="font-display text-lg font-semibold text-magenta">Testar um endereço</h2>
+          <p className="text-xs text-magenta/55">Usa os valores já salvos e o mesmo cálculo do checkout: mostra exatamente o que a cliente vai ver.</p>
+          <input value={simEnd.endereco} onChange={(e) => setSimEnd((s) => ({ ...s, endereco: e.target.value }))} className="campo" placeholder="Rua e número (ex.: Rua das Flores, 123)" />
           <div className="flex gap-2">
-            <input inputMode="numeric" value={simCep} onChange={(e) => setSimCep(mascaraCep(e.target.value))} className="campo tnum" placeholder="CEP da cliente" />
-            <button type="button" onClick={simular} disabled={soDigitos(simCep).length !== 8 || sim?.carregando} className="btn-claro shrink-0">Calcular</button>
+            <input value={simEnd.bairro} onChange={(e) => setSimEnd((s) => ({ ...s, bairro: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && simPronto && simular()} className="campo" placeholder="Bairro" />
+            <button type="button" onClick={simular} disabled={!simPronto || sim?.carregando} className="btn-claro shrink-0">Calcular</button>
           </div>
+          <SugestoesBairro opcoes={simBairros} valor={simEnd.bairro} titulo="Bairros onde existe essa rua:" onEscolher={(b) => setSimEnd((s) => ({ ...s, bairro: b }))} />
           {sim && (
             <p className="rounded-2xl bg-cream px-4 py-3 text-sm text-magenta">
               {sim.carregando ? 'Calculando…'
                 : !sim.ok ? <span className="text-vermelho">{sim.erro}</span>
                   : <>
-                      {[sim.logradouro, sim.bairro].filter(Boolean).join(' · ')}
-                      {sim.lat != null && <> · <a className="text-xs underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${sim.lat},${sim.lng}`}>ver no mapa</a>
-                        {sim.fonte === 'bairro' && <span className="text-xs text-magenta/55"> (centro do bairro)</span>}</>}
-                      <br />
+                      {sim.rotulo ? <>📍 {sim.rotulo}</> : 'Endereço não encontrado no mapa'}
+                      {sim.lat != null && <> · <a className="text-xs underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${sim.lat},${sim.lng}`}>ver no mapa</a></>}
+                      {sim.lat != null && <span className={`block text-xs ${sim.aproximado ? 'text-ambar' : 'text-verde'}`}>{sim.aproximado ? 'Localização aproximada (o mapa não conhece esse número; o pedido chega marcado como aproximado)' : 'Casa exata encontrada no mapa'}</span>}
                       {sim.km == null
-                        ? <>Localização do CEP não encontrada → <strong>frete a combinar</strong></>
+                        ? <>→ <strong>frete a combinar</strong></>
                         : <><strong>{formatKm(sim.km)}</strong>{sim.pela_rua ? " pelas ruas" : " (estimado)"} → {sim.a_combinar ? <strong>frete a combinar</strong> : <strong>{Number(sim.taxa) === 0 ? 'Grátis' : formatBRL(sim.taxa)}</strong>}</>}
                     </>}
             </p>
