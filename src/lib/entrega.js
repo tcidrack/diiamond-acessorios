@@ -12,6 +12,7 @@ export const PADRAO_ENTREGA = {
   entrega_valor_km: 1,
   entrega_max_km: 10,
   entrega_fator_rota: 1.3,
+  entrega_gratis_km: 0, // entrega grátis até X km (0 = desligado)
 }
 
 const num = (v, padrao) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? padrao : Number(v))
@@ -24,6 +25,7 @@ export function regrasEntrega(cfg = {}) {
 export function taxaPorKm(km, cfg) {
   const r = regrasEntrega(cfg)
   if (km > r.entrega_max_km) return { km, taxa: 0, a_combinar: true }
+  if (r.entrega_gratis_km > 0 && km <= r.entrega_gratis_km) return { km, taxa: 0, a_combinar: false, gratis_km: true }
   const taxa = km <= r.entrega_raio_km ? r.entrega_taxa_base : r.entrega_taxa_base + r.entrega_valor_km * Math.ceil(km)
   return { km, taxa: Math.round(taxa * 100) / 100, a_combinar: false }
 }
@@ -71,6 +73,9 @@ export const linhasHorarioEntrega = (cfg) => String(cfg?.horario_entrega || '').
 export function tabelaExemplo(cfg) {
   const r = regrasEntrega(cfg)
   const linhas = []
+  if (r.entrega_gratis_km > 0 && r.entrega_gratis_km < r.entrega_max_km && !Number.isInteger(r.entrega_gratis_km)) {
+    linhas.push(taxaPorKm(r.entrega_gratis_km, cfg))
+  }
   for (let km = 1; km <= Math.min(Math.ceil(r.entrega_max_km), 30); km++) linhas.push(taxaPorKm(km, cfg))
   linhas.push({ ...taxaPorKm(r.entrega_max_km + 0.1, cfg), km: null })
   return linhas

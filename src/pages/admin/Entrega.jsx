@@ -234,7 +234,8 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
       }))
       setAviso('Valores da entrega salvos!')
     } catch (e) {
-      setErro(/origem|entrega_|column/i.test(e.message) ? 'Rode a SQL 0009_entrega_distancia.sql no Supabase.' : e.message)
+      setErro(/entrega_gratis_km/i.test(e.message) ? 'Rode a SQL 0013_entrega_gratis_km.sql no Supabase.'
+        : /origem|entrega_|column/i.test(e.message) ? 'Rode a SQL 0009_entrega_distancia.sql no Supabase.' : e.message)
     } finally {
       setSalvando(false)
     }
@@ -292,11 +293,14 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
           <Campo rotulo="Valor por km (R$)"><input inputMode="decimal" value={cfg.entrega_valor_km} onChange={set('entrega_valor_km')} className="campo tnum" /></Campo>
           <Campo rotulo="Entrega até (km)" ajuda="Acima disso: frete a combinar."><input inputMode="decimal" value={cfg.entrega_max_km} onChange={set('entrega_max_km')} className="campo tnum" /></Campo>
         </div>
+        <Campo rotulo="Entrega grátis até (km)" ajuda="Perto da loja a entrega sai grátis. 0,5 = 500 metros; 2 = 2 km. 0 = sem entrega grátis por distância.">
+          <input inputMode="decimal" value={cfg.entrega_gratis_km} onChange={set('entrega_gratis_km')} className="campo tnum w-28" />
+        </Campo>
         <Campo rotulo="Fator de rota" ajuda="A distância é calculada pelo caminho de moto. Só se o mapa não responder, usa a linha reta multiplicada por este número (1,3 é o normal).">
           <input inputMode="decimal" value={cfg.entrega_fator_rota} onChange={set('entrega_fator_rota')} className="campo tnum w-28" />
         </Campo>
         <p className="rounded-2xl bg-cream px-4 py-3 text-xs text-magenta/70">
-          Regra: até {cfg.entrega_raio_km} km = {formatBRL(regras.entrega_taxa_base || 0)}. Acima: {formatBRL(regras.entrega_taxa_base || 0)} + {formatBRL(regras.entrega_valor_km || 0)} por km
+          Regra: {regras.entrega_gratis_km > 0 && <>até {formatKm(regras.entrega_gratis_km)} = <strong>grátis</strong>; </>}até {cfg.entrega_raio_km} km = {formatBRL(regras.entrega_taxa_base || 0)}. Acima: {formatBRL(regras.entrega_taxa_base || 0)} + {formatBRL(regras.entrega_valor_km || 0)} por km
           (km arredondado para cima). Acima de {cfg.entrega_max_km} km o pedido é feito com o frete a combinar pelo WhatsApp.
         </p>
         <Erro>{erro}</Erro>
@@ -322,7 +326,7 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
                       <br />
                       {sim.km == null
                         ? <>Localização do CEP não encontrada → <strong>frete a combinar</strong></>
-                        : <><strong>{formatKm(sim.km)}</strong>{sim.pela_rua ? " pelas ruas" : " (estimado)"} → {sim.a_combinar ? <strong>frete a combinar</strong> : <strong>{formatBRL(sim.taxa)}</strong>}</>}
+                        : <><strong>{formatKm(sim.km)}</strong>{sim.pela_rua ? " pelas ruas" : " (estimado)"} → {sim.a_combinar ? <strong>frete a combinar</strong> : <strong>{Number(sim.taxa) === 0 ? 'Grátis' : formatBRL(sim.taxa)}</strong>}</>}
                     </>}
             </p>
           )}
@@ -335,8 +339,8 @@ function Distancia({ cfg, setCfg, paraTela, setAviso }) {
               <tbody>
                 {tabela.map((l, i) => (
                   <tr key={i} className="border-b border-blush/60 last:border-0">
-                    <td className="py-1.5 text-magenta/70">{l.km == null ? `Mais de ${cfg.entrega_max_km} km` : `até ${l.km} km`}</td>
-                    <td className="tnum py-1.5 text-right font-semibold text-magenta">{l.a_combinar ? 'A combinar' : formatBRL(l.taxa)}</td>
+                    <td className="py-1.5 text-magenta/70">{l.km == null ? `Mais de ${cfg.entrega_max_km} km` : `até ${formatKm(l.km).replace(',0 km', ' km')}`}</td>
+                    <td className="tnum py-1.5 text-right font-semibold text-magenta">{l.a_combinar ? 'A combinar' : l.taxa === 0 ? 'Grátis' : formatBRL(l.taxa)}</td>
                   </tr>
                 ))}
               </tbody>
