@@ -7,11 +7,11 @@ export default function PedidoCard({ pedido }) {
   const status = STATUS_PEDIDO[pedido.status]
   const pecas = (pedido.itens || []).reduce((s, i) => s + i.quantidade, 0)
   return (
-    <Link to={`/admin/pedidos/${pedido.id}`} className="card surge flex flex-col gap-2 p-4 transition hover:shadow-lift">
-      <div className="flex items-center gap-2">
+    <Link to={`/admin/pedidos/${pedido.id}`} className="card surge flex min-w-0 flex-col gap-2 p-4 transition hover:shadow-lift">
+      <div className="flex min-w-0 items-center gap-2">
         <span className="font-display text-lg font-semibold text-magenta">{pedido.codigo}</span>
         <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${status?.cor}`}>{status?.rotulo}</span>
-        <span className="ml-auto text-xs text-magenta/45">{formatData(pedido.created_at)}</span>
+        <span className="ml-auto shrink-0 text-xs text-magenta/45">{formatData(pedido.created_at)}</span>
       </div>
       <div className="flex items-end justify-between gap-2">
         <div className="min-w-0 text-sm">
